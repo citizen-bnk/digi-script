@@ -228,11 +228,21 @@ root (the default)** when creating the project — pointing it at
 place.
 
 The `routes` block pairs with `builds` (`rewrites` is only for the
-non-`builds` config style). `handle: filesystem` serves real files first —
-hashed assets, `sw.js`, `manifest.webmanifest` — and everything else falls
-through to `index.html`, which is what makes client-side routes survive a
-deep link or a page refresh. Without that fallback, loading `/chat`
-directly returns a 404.
+non-`builds` config style), and it has to do one non-obvious thing:
+**rewrite every incoming path into `/web/mobile-app/`**. `@vercel/static-build`
+mounts its output at the directory of its `src` entrypoint, not at the
+deployment root — so `dist/index.html` is served at
+`/web/mobile-app/index.html`. Routes written against `/index.html` match
+nothing and every request 404s.
+
+So the order is: rewrite `/(.*)` → `/web/mobile-app/$1`, then
+`handle: filesystem` serves real files (hashed assets, `sw.js`,
+`manifest.webmanifest`), then anything still unmatched falls through to
+`/web/mobile-app/index.html`. That last hop is what makes client-side
+routes survive a deep link or a page refresh — without it, loading `/chat`
+directly returns a 404. `/` and `/sw.js` are handled explicitly ahead of
+the generic rewrite, the latter to keep the service worker from being
+cached and pinning the app to a stale build.
 
 ### Pointing it at a backend
 
