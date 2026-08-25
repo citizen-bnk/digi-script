@@ -3,7 +3,7 @@ import { z } from "zod";
 import { validateBody } from "../../middleware/validate.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireRole, requireSameSchool, ROLE_GROUPS } from "../../middleware/rbac.js";
-import { signToken } from "../../middleware/auth.js";
+import { signToken, toAuthenticatedUser } from "../../middleware/auth.js";
 import { registerSchool, getSchoolById } from "./school.service.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 
@@ -24,13 +24,7 @@ schoolRouter.post(
   asyncHandler(async (req, res) => {
     const { school, principal } = await registerSchool(req.body);
 
-    const token = signToken({
-      id: principal.id,
-      role: principal.role,
-      schoolId: principal.schoolId,
-      districtId: principal.districtId,
-      email: principal.email,
-    });
+    const token = signToken(toAuthenticatedUser(principal));
 
     res.status(201).json({ school, user: { id: principal.id, email: principal.email, role: principal.role }, token });
   }),

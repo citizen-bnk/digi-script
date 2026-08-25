@@ -43,4 +43,8 @@ export const ROLE_GROUPS = {
   documentReview: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR],
   escalationHandlers: [Role.SUPER_USER, Role.SUPERVISOR, Role.SUPPORT],
   auditAccess: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPPORT],
+  // TEACHER is read-only and class-scoped (enforced by listStudents /
+  // assertCanAccessStudent), unlike documentReview roles which can also
+  // upload and categorize documents.
+  studentRoster: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR, Role.TEACHER],
 } as const;

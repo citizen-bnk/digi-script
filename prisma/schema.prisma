@@ -40,14 +40,14 @@ model School {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  district     District?      @relation(fields: [districtId], references: [id])
-  users        User[]
-  students     Student[]
-  documents    Document[]
-  escalations  Escalation[]
+  district      District?      @relation(fields: [districtId], references: [id])
+  users         User[]
+  students      Student[]
+  documents     Document[]
+  escalations   Escalation[]
   conversations Conversation[]
-  auditLogs    AuditLog[]
-  budgets      Budget[]
+  auditLogs     AuditLog[]
+  budgets       Budget[]
 
   @@index([districtId])
   @@map("schools")
@@ -59,11 +59,11 @@ model School {
 
 enum Role {
   SYSTEM_OWNER // Kari Group: cross-district financial + compliance oversight
-  SUPER_USER   // School principal / administrator: full school access
-  SUPERVISOR   // Teacher/supervisor with escalation + nurse/health access
-  TEACHER      // Read-only class access, no escalation/financial access
-  PARENT       // Own-child-only access
-  SUPPORT      // Escalation queue + audit log access, no document management
+  SUPER_USER // School principal / administrator: full school access
+  SUPERVISOR // Teacher/supervisor with escalation + nurse/health access
+  TEACHER // Read-only class access, no escalation/financial access
+  PARENT // Own-child-only access
+  SUPPORT // Escalation queue + audit log access, no document management
 }
 
 enum UserStatus {
@@ -72,29 +72,32 @@ enum UserStatus {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  districtId   String?
-  schoolId     String?
-  role         Role
-  name         String
-  email        String     @unique
-  phone        String?
-  passwordHash String
-  status       UserStatus @default(ACTIVE)
-  mfaEnabled   Boolean    @default(false)
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                String     @id @default(uuid())
+  districtId        String?
+  schoolId          String?
+  role              Role
+  name              String
+  email             String     @unique
+  phone             String?
+  passwordHash      String
+  status            UserStatus @default(ACTIVE)
+  mfaEnabled        Boolean    @default(false)
+  // PRD 4.8: "Teachers can access student records for their classes" — scopes
+  // a TEACHER/SUPERVISOR to one class. Null means unscoped (e.g. SUPER_USER).
+  assignedClassName String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   district District? @relation(fields: [districtId], references: [id])
   school   School?   @relation(fields: [schoolId], references: [id])
 
-  uploadedDocuments   Document[]        @relation("DocumentUploadedBy")
-  assignedEscalations Escalation[]      @relation("EscalationAssignee")
-  parentLinks         ParentStudentLink[]
-  sentMessages        Message[]
-  auditLogs           AuditLog[]
-  conversationsAsParent Conversation[]  @relation("ConversationParent")
+  uploadedDocuments     Document[]          @relation("DocumentUploadedBy")
+  assignedEscalations   Escalation[]        @relation("EscalationAssignee")
+  parentLinks           ParentStudentLink[]
+  sentMessages          Message[]
+  auditLogs             AuditLog[]
+  conversationsAsParent Conversation[]      @relation("ConversationParent")
 
   @@index([schoolId])
   @@index([districtId])
@@ -106,16 +109,16 @@ model User {
 // ---------------------------------------------------------------------------
 
 model Student {
-  id               String   @id @default(uuid())
-  schoolId         String
-  name             String
-  grade            String?
-  className        String?
-  dateOfBirth      DateTime?
+  id                String    @id @default(uuid())
+  schoolId          String
+  name              String
+  grade             String?
+  className         String?
+  dateOfBirth       DateTime?
   emergencyContacts Json?
-  medicalNotes     Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  medicalNotes      Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   school        School              @relation(fields: [schoolId], references: [id])
   parentLinks   ParentStudentLink[]
@@ -188,6 +191,10 @@ model Document {
   sizeBytes          Int
   status             DocumentStatus @default(PENDING_REVIEW)
   categoryConfidence Float?
+  // Short human-readable reasons behind the suggested category (the "why we
+  // think this" list on the AI Categorization screen), e.g. ["Contains
+  // attendance-related keywords", "Matches 12 similar documents"].
+  categoryReasons    Json?
   sensitivity        Sensitivity    @default(NORMAL)
   academicYear       String?
   term               String?
@@ -298,10 +305,13 @@ model Message {
   senderUserId   String?
   body           String
   confidence     Float?
+  // Staff-only note attached to a conversation (the "Add Note (internal)"
+  // field on the Respond to Parent screen) — never shown to the parent.
+  isInternal     Boolean    @default(false)
   createdAt      DateTime   @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
-  senderUser   User?         @relation(fields: [senderUserId], references: [id])
+  senderUser   User?        @relation(fields: [senderUserId], references: [id])
 
   @@index([conversationId])
   @@map("messages")
@@ -313,14 +323,14 @@ model Message {
 // ---------------------------------------------------------------------------
 
 model Budget {
-  id           String   @id @default(uuid())
-  schoolId     String
-  costCenter   String
-  term         String
-  amountBudgeted Decimal @db.Decimal(14, 2)
-  amountSpent    Decimal @db.Decimal(14, 2) @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(uuid())
+  schoolId       String
+  costCenter     String
+  term           String
+  amountBudgeted Decimal  @db.Decimal(14, 2)
+  amountSpent    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id])
 
@@ -333,16 +343,16 @@ model Budget {
 // ---------------------------------------------------------------------------
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  districtId String?
-  schoolId   String?
+  id          String   @id @default(uuid())
+  districtId  String?
+  schoolId    String?
   actorUserId String?
-  action     String
-  targetType String
-  targetId   String?
-  metadata   Json?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
 
   district District? @relation(fields: [districtId], references: [id])
   school   School?   @relation(fields: [schoolId], references: [id])

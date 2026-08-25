@@ -17,6 +17,7 @@ const createUserSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(["SUPER_USER", "SUPERVISOR", "TEACHER", "PARENT", "SUPPORT"]),
   temporaryPassword: z.string().min(8),
+  assignedClassName: z.string().optional(),
 });
 
 userRouter.post(

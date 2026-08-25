@@ -7,8 +7,10 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { schoolRouter } from "./modules/schools/school.routes.js";
 import { userRouter } from "./modules/users/user.routes.js";
+import { studentRouter } from "./modules/students/student.routes.js";
 import { documentRouter } from "./modules/documents/document.routes.js";
 import { escalationRouter } from "./modules/escalations/escalation.routes.js";
+import { conversationRouter } from "./modules/conversations/conversation.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 
 export function createApp(): Express {
@@ -26,8 +28,10 @@ export function createApp(): Express {
   app.use("/auth", authRouter);
   app.use("/schools", schoolRouter);
   app.use("/users", userRouter);
+  app.use("/students", studentRouter);
   app.use("/documents", documentRouter);
   app.use("/escalations", escalationRouter);
+  app.use("/conversations", conversationRouter);
   app.use("/audit", auditRouter);
 
   app.use(notFoundHandler);

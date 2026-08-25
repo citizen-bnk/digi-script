@@ -12,6 +12,7 @@ export interface CreateUserInput {
   phone?: string;
   role: Exclude<Role, "SYSTEM_OWNER">;
   temporaryPassword: string;
+  assignedClassName?: string;
 }
 
 // PRD 4.2 User & Role Management: SUPER_USER creates users and assigns roles
@@ -32,6 +33,7 @@ export async function createSchoolUser(input: CreateUserInput) {
       email: input.email,
       phone: input.phone,
       passwordHash,
+      assignedClassName: input.assignedClassName,
     },
   });
 
@@ -51,7 +53,16 @@ export async function listSchoolUsers(schoolId: string) {
   return prisma.user.findMany({
     where: { schoolId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, email: true, role: true, status: true, lastLoginAt: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      assignedClassName: true,
+      lastLoginAt: true,
+      createdAt: true,
+    },
   });
 }
 

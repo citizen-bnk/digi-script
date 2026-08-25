@@ -1,8 +1,20 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import type { User } from "@prisma/client";
 import { env } from "../config/env.js";
 import { AppError } from "../utils/app-error.js";
 import type { AuthenticatedUser } from "../types/auth.js";
+
+export function toAuthenticatedUser(user: User): AuthenticatedUser {
+  return {
+    id: user.id,
+    role: user.role,
+    schoolId: user.schoolId,
+    districtId: user.districtId,
+    email: user.email,
+    assignedClassName: user.assignedClassName,
+  };
+}
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const header = req.headers.authorization;

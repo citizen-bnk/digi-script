@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { validateBody } from "../../middleware/validate.js";
-import { signToken, requireAuth } from "../../middleware/auth.js";
+import { signToken, requireAuth, toAuthenticatedUser } from "../../middleware/auth.js";
 import { loginWithPassword } from "./auth.service.js";
 import { prisma } from "../../db/prisma.js";
 import { AppError } from "../../utils/app-error.js";
@@ -22,13 +22,7 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const user = await loginWithPassword(req.body.email, req.body.password);
 
-    const token = signToken({
-      id: user.id,
-      role: user.role,
-      schoolId: user.schoolId,
-      districtId: user.districtId,
-      email: user.email,
-    });
+    const token = signToken(toAuthenticatedUser(user));
 
     res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name }, token });
   }),

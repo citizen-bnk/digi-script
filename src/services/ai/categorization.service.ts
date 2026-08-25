@@ -9,6 +9,9 @@
 export interface CategorizationResult {
   category: string;
   confidence: number;
+  // Short human-readable reasons, shown as the "why we think this" list on
+  // the AI Categorization screen (docs/design/mobile-app-screens-catalog.md, page 04).
+  reasons: string[];
 }
 
 export interface CategorizationService {
@@ -34,11 +37,15 @@ export class HeuristicCategorizationService implements CategorizationService {
       if (hit) {
         // Longer, more specific keyword matches are treated as higher confidence.
         const confidence = Math.min(0.98, 0.75 + hit.length / 100);
-        return { category: rule.category, confidence };
+        return {
+          category: rule.category,
+          confidence,
+          reasons: [`Contains "${hit}"-related keywords`, `Matches the "${rule.category}" naming pattern`],
+        };
       }
     }
 
-    return { category: "Other", confidence: 0.4 };
+    return { category: "Other", confidence: 0.4, reasons: ["No matching category keywords found"] };
   }
 }
 

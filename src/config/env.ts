@@ -10,6 +10,9 @@ const envSchema = z.object({
   LOCAL_STORAGE_DIR: z.string().default(".data/documents"),
   AI_CATEGORIZATION_HIGH_CONFIDENCE: z.coerce.number().default(0.85),
   AI_CATEGORIZATION_LOW_CONFIDENCE: z.coerce.number().default(0.7),
+  // PRD 4.7: below this, the AI's chat answer is treated as unresolved and
+  // handed to the escalation queue rather than sent to the parent as final.
+  QUERY_LOW_CONFIDENCE: z.coerce.number().default(0.7),
 });
 
 export type Env = z.infer<typeof envSchema>;

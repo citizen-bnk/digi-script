@@ -37,7 +37,7 @@ export async function ingestDocument(input: IngestDocumentInput) {
     buffer: input.buffer,
   });
 
-  const { category, confidence } = await categorizationService.categorize({
+  const { category, confidence, reasons } = await categorizationService.categorize({
     filename: input.filename,
     textSample: input.textSample,
   });
@@ -58,6 +58,7 @@ export async function ingestDocument(input: IngestDocumentInput) {
       studentId: input.studentId,
       categoryId: categoryRecord.id,
       categoryConfidence: confidence,
+      categoryReasons: reasons,
       originalFilename: input.filename,
       storageKey: stored.storageKey,
       mimeType: input.mimeType,

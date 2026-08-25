@@ -32,6 +32,7 @@ async function main() {
       name: "Mrs. Johnson",
       email: "teacher@riverside.example",
       passwordHash,
+      assignedClassName: "Grade 1A",
     },
   });
 

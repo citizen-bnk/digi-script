@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   schoolId: string | null;
   districtId: string | null;
   email: string;
+  assignedClassName: string | null;
 }
 
 declare global {
