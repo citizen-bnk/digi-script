@@ -25,11 +25,22 @@ async function main() {
     },
   });
 
-  const teacher = await prisma.user.create({
+  const supervisor = await prisma.user.create({
     data: {
       schoolId: school.id,
       role: Role.SUPERVISOR,
       name: "Mrs. Johnson",
+      email: "supervisor@riverside.example",
+      passwordHash,
+      assignedClassName: "Grade 1A",
+    },
+  });
+
+  const teacher = await prisma.user.create({
+    data: {
+      schoolId: school.id,
+      role: Role.TEACHER,
+      name: "Mr. Smith",
       email: "teacher@riverside.example",
       passwordHash,
       assignedClassName: "Grade 1A",
@@ -76,10 +87,11 @@ async function main() {
   });
 
   console.log("Seeded:");
-  console.log(`  School:    ${school.name} (${school.id})`);
-  console.log(`  Principal: ${principal.email} / Password123!`);
-  console.log(`  Teacher:   ${teacher.email} / Password123!`);
-  console.log(`  Parent:    ${parent.email} / Password123!`);
+  console.log(`  School:     ${school.name} (${school.id})`);
+  console.log(`  Principal:  ${principal.email} / Password123!`);
+  console.log(`  Supervisor: ${supervisor.email} / Password123!`);
+  console.log(`  Teacher:    ${teacher.email} / Password123!`);
+  console.log(`  Parent:     ${parent.email} / Password123!`);
   console.log(`  Student:   ${student.name} (${student.id})`);
   console.log(`  Student login: ${studentLogin.email} / Password123!`);
 }

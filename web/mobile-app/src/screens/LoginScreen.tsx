@@ -17,7 +17,7 @@ export function LoginScreen() {
     setSubmitting(true)
     try {
       await login(email, password)
-      navigate('/chat', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
     } finally {

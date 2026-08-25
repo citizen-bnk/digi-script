@@ -35,12 +35,13 @@ Scope questions the screenshot catalog raised have been resolved:
 | Scanning Team (bulk ID/document capture with OCR field extraction) | **Deferred** — not in the PRD's role list; not built. |
 | Full Financial Management module (budgets, transactions, bank reconciliation, treasury/payroll integration) | **Deferred** — matches the PRD's own release plan, which places full financial consolidation after MVP Phase 1. The `Budget` model remains a minimal stub. |
 
-The Parent flow of System A now has a working frontend:
-[`web/parent-app`](./web/parent-app) — an installable PWA (React + Vite +
-`vite-plugin-pwa`) covering onboarding/login, chat home, a conversation
-thread, My Child, Notifications, and Profile, wired to the real backend
-below. The rest of System A (Teacher/Supervisor screens) and all of
-System B (the web back-office) remain unbuilt.
+All four non-back-office roles of System A now have a working frontend:
+[`web/mobile-app`](./web/mobile-app) — an installable PWA (React + Vite +
+`vite-plugin-pwa`) covering Parent (chat, My Child, Notifications),
+Teacher (class roster, read-only documents), Supervisor (escalations,
+document upload + AI categorization, staff replies), and a narrow Student
+self-view, all wired to the real backend below. All of System B (the web
+back-office for System Owner/Super User/Support) remains unbuilt.
 
 ## Architecture
 
@@ -79,6 +80,11 @@ pipeline, RBAC, or audit trail:
 4. Folder path is generated as `{academicYear}/{term}/{category}`
    (mirrors the S3 layout in PRD 4.5).
 5. Every step is written to the immutable audit log.
+6. Confirming a category (`POST /documents/:id/confirm-category`) also
+   auto-resolves that document's escalation, if it has one — the other
+   half of PRD Use Case 3 ("document auto-organized" / "Mark as
+   Resolved"), so a supervisor reviewing a low-confidence document doesn't
+   have to separately resolve its escalation afterward.
 
 The categorization result also carries a short `reasons: string[]` list —
 the "why we think this" explanation shown on the AI Categorization screen
@@ -119,10 +125,18 @@ Enforced in `src/middleware/rbac.ts`:
   conversation modules: `SYSTEM_OWNER`/`SUPER_USER` see the whole school,
   `TEACHER`/`SUPERVISOR` are scoped to `assignedClassName`, `PARENT`
   requires a `ParentStudentLink`, and `STUDENT` may only access the one
-  record matching their own `studentId`. **Known gap:** the document module does
-  not yet call this — a `SUPERVISOR` can currently list/view documents for
-  any student in the school, not just their assigned class. Tightening
-  this means routing document access through the same check.
+  record matching their own `studentId`.
+- Documents have their own, narrower scoping in
+  `src/modules/documents/document.service.ts`: `ROLE_GROUPS.documentRead`
+  (`SYSTEM_OWNER`/`SUPER_USER`/`SUPERVISOR`/`TEACHER`) can list/view, but
+  only `ROLE_GROUPS.documentReview` (excludes `TEACHER`) can upload or
+  confirm a category — matching the PRD's "Teacher: view documents, no
+  upload access." `TEACHER` additionally only sees documents with no
+  student attached (school-wide) or attached to a student in their
+  `assignedClassName`. **Known gap:** `SUPERVISOR` is not similarly
+  class-scoped for documents — an unset `assignedClassName` (the common
+  case) already means school-wide by design, but even a supervisor whose
+  `assignedClassName` is set can currently see every class's documents.
 
 ### Audit trail (PRD 4.10)
 
@@ -144,9 +158,9 @@ phases in the PRD):
 - Semantic search / vector embeddings (PRD 4.6) — `QueryService` currently
   matches by keyword against a student's own categorized documents, not a
   real knowledge-base index
-- The rest of System A (Teacher/Supervisor mobile screens) and all of
-  System B (the web back-office) — only the Parent flow is built so far,
-  in [`web/parent-app`](./web/parent-app). Native (non-PWA) apps aren't
+- All of System B (the web back-office for System Owner/Super
+  User/Support) — [`web/mobile-app`](./web/mobile-app) covers System A
+  (Parent/Teacher/Supervisor/Student) only. Native (non-PWA) apps aren't
   planned; see `docs/design/mobile-app-screens-catalog.md` and
   **Product decisions** above for which visual system each app follows.
 - Multi-school financial consolidation and government report generation
@@ -170,8 +184,8 @@ npm run dev                 # starts the API on :4000
 ```
 
 Demo login (from `npm run seed`): `principal@riverside.example` /
-`Password123!` (also `teacher@` and `parent@` at the same domain, and
-`jane.smith@riverside.example` for the seeded student login).
+`Password123!` (also `supervisor@`, `teacher@`, and `parent@` at the same
+domain, and `jane.smith@riverside.example` for the seeded student login).
 
 ### Testing
 
@@ -205,7 +219,7 @@ docs/specs/                 source PRD / application spec / use cases
 docs/design/                screenshot-derived UI reference (see the
                              catalog's "two visual systems" caveat before
                              using it for frontend work)
-web/parent-app/              System A Parent flow — installable PWA
-                             (React + Vite), see its own README for how
-                             to run it and test installability
+web/mobile-app/              System A: Parent/Teacher/Supervisor/Student —
+                             installable PWA (React + Vite), see its own
+                             README for how to run it and test installability
 ```

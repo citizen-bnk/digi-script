@@ -1,11 +1,12 @@
-import { DocumentStatus, EscalationReasonType, Sensitivity } from "@prisma/client";
+import { DocumentStatus, EscalationReasonType, Role, Sensitivity } from "@prisma/client";
 import { prisma } from "../../db/prisma.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../utils/app-error.js";
 import { storageService } from "../../services/storage/storage.service.js";
 import { categorizationService } from "../../services/ai/categorization.service.js";
 import { recordAuditEntry } from "../audit/audit.service.js";
-import { createEscalation } from "../escalations/escalation.service.js";
+import { createEscalation, resolveEscalationForDocument } from "../escalations/escalation.service.js";
+import type { AuthenticatedUser } from "../../types/auth.js";
 
 export interface IngestDocumentInput {
   schoolId: string;
@@ -94,18 +95,48 @@ export async function ingestDocument(input: IngestDocumentInput) {
   return document;
 }
 
-export async function listDocuments(schoolId: string, filters: { studentId?: string; status?: DocumentStatus }) {
+// TEACHER sees only school-wide documents (no student attached) plus
+// documents belonging to students in their assigned class — the same
+// class-scoping rule listStudents applies to the roster (PRD 4.8).
+function teacherClassScopeWhere(user: AuthenticatedUser) {
+  if (user.role !== Role.TEACHER || !user.assignedClassName) {
+    return {};
+  }
+  return { OR: [{ studentId: null }, { student: { className: user.assignedClassName } }] };
+}
+
+export async function listDocuments(
+  schoolId: string,
+  user: AuthenticatedUser,
+  filters: { studentId?: string; status?: DocumentStatus },
+) {
   return prisma.document.findMany({
-    where: { schoolId, studentId: filters.studentId, status: filters.status },
+    where: { schoolId, studentId: filters.studentId, status: filters.status, ...teacherClassScopeWhere(user) },
     include: { category: true },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export async function getDocument(documentId: string, schoolId: string) {
-  const document = await prisma.document.findUnique({ where: { id: documentId }, include: { category: true } });
+async function findDocumentOrThrow(documentId: string, schoolId: string) {
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    include: { category: true, student: true },
+  });
   if (!document || document.schoolId !== schoolId) {
     throw AppError.notFound("Document not found");
+  }
+  return document;
+}
+
+export async function getDocument(user: AuthenticatedUser, documentId: string, schoolId: string) {
+  const document = await findDocumentOrThrow(documentId, schoolId);
+  if (
+    user.role === Role.TEACHER &&
+    user.assignedClassName &&
+    document.studentId &&
+    document.student?.className !== user.assignedClassName
+  ) {
+    throw AppError.forbidden("Teachers may only access documents for their assigned class");
   }
   return document;
 }
@@ -117,7 +148,7 @@ export async function confirmDocumentCategory(
   categoryName: string,
   actorUserId: string,
 ) {
-  const document = await getDocument(documentId, schoolId);
+  const document = await findDocumentOrThrow(documentId, schoolId);
 
   const categoryRecord = await prisma.documentCategory.upsert({
     where: { name: categoryName },
@@ -137,6 +168,8 @@ export async function confirmDocumentCategory(
       }),
     },
   });
+
+  await resolveEscalationForDocument(document.id, actorUserId);
 
   await recordAuditEntry({
     actorUserId,

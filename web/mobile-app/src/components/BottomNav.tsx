@@ -1,15 +1,17 @@
 import { NavLink } from 'react-router-dom'
 
-const TABS = [
-  { to: '/chat', label: 'Chat', icon: '💬' },
-  { to: '/my-child', label: 'My Child', icon: '👤' },
-  { to: '/notifications', label: 'Notifications', icon: '🔔' },
-  { to: '/profile', label: 'Profile', icon: '⚙️' },
-]
+export interface NavTab {
+  to: string
+  label: string
+  icon: string
+  end?: boolean
+}
 
-// 4-tab bottom nav matching the Parent Module screens in
-// docs/design/mobile-app-screens-catalog.md (page 02).
-export function BottomNav() {
+// Generic 4-tab bottom nav — which tabs it shows depends on role (see
+// role-specific tab sets in App.tsx), matching the pattern in
+// docs/design/mobile-app-screens-catalog.md where each role gets the same
+// nav shell with different destinations.
+export function BottomNav({ tabs }: { tabs: NavTab[] }) {
   return (
     <nav
       style={{
@@ -25,10 +27,11 @@ export function BottomNav() {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {TABS.map((tab) => (
+      {tabs.map((tab) => (
         <NavLink
           key={tab.to}
           to={tab.to}
+          end={tab.end}
           style={({ isActive }) => ({
             flex: 1,
             display: 'flex',

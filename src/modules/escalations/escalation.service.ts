@@ -77,6 +77,34 @@ export async function resolveEscalation(
   return updated;
 }
 
+/**
+ * Auto-resolves the escalation attached to a document (if any and not
+ * already resolved) once a human confirms its category — the other half
+ * of PRD Use Case 3 ("document auto-organized" / "Mark as Resolved").
+ * Silently no-ops if there's no such escalation, so callers that don't
+ * know whether a document was ever escalated can call this unconditionally.
+ */
+export async function resolveEscalationForDocument(documentId: string, resolvedByUserId: string) {
+  const escalation = await prisma.escalation.findUnique({ where: { documentId } });
+  if (!escalation || escalation.status === EscalationStatus.RESOLVED) {
+    return;
+  }
+
+  await prisma.escalation.update({
+    where: { id: escalation.id },
+    data: { status: EscalationStatus.RESOLVED, resolutionNotes: "Resolved via category confirmation", resolvedAt: new Date() },
+  });
+
+  await recordAuditEntry({
+    actorUserId: resolvedByUserId,
+    schoolId: escalation.schoolId,
+    action: "ESCALATION_RESOLVED",
+    targetType: "Escalation",
+    targetId: escalation.id,
+    metadata: { resolutionNotes: "Resolved via category confirmation" },
+  });
+}
+
 async function getEscalationOrThrow(escalationId: string, schoolId: string) {
   const escalation = await prisma.escalation.findUnique({ where: { id: escalationId } });
   if (!escalation || escalation.schoolId !== schoolId) {

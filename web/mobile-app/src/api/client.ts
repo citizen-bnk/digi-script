@@ -47,6 +47,48 @@ export interface AuthUser {
   role: string
   name: string
   schoolId?: string | null
+  assignedClassName?: string | null
+  studentId?: string | null
+}
+
+export interface Student {
+  id: string
+  schoolId: string
+  name: string
+  grade?: string | null
+  className?: string | null
+  dateOfBirth?: string | null
+  relationship?: string
+}
+
+export interface DocumentSummary {
+  id: string
+  studentId: string | null
+  originalFilename: string
+  status: 'PENDING_REVIEW' | 'CATEGORIZED' | 'ESCALATED' | 'ARCHIVED'
+  categoryConfidence: number | null
+  categoryReasons: string[] | null
+  folderPath: string | null
+  createdAt: string
+  category?: { name: string } | null
+  student?: { id: string; name: string } | null
+}
+
+export interface Escalation {
+  id: string
+  schoolId: string
+  documentId: string | null
+  conversationId: string | null
+  studentId: string | null
+  reasonType: string
+  reason: string
+  aiConfidence: number | null
+  status: 'NEW' | 'IN_PROGRESS' | 'RESOLVED'
+  resolutionNotes: string | null
+  createdAt: string
+  resolvedAt: string | null
+  document?: DocumentSummary | null
+  student?: { id: string; name: string } | null
 }
 
 export const api = {
@@ -60,6 +102,12 @@ export const api = {
 
   myChildren: () =>
     request<{ children: Array<Record<string, unknown> & { id: string; name: string }> }>('/students/my-children'),
+
+  listStudents: (schoolId: string) => request<{ students: Student[] }>(`/students?schoolId=${schoolId}`),
+
+  myOwnStudentRecord: () => request<{ student: Student }>('/students/me'),
+
+  getStudent: (studentId: string) => request<{ student: Student }>(`/students/${studentId}`),
 
   listConversations: (schoolId: string) =>
     request<{ conversations: Conversation[] }>(`/conversations?schoolId=${schoolId}`),
@@ -80,6 +128,45 @@ export const api = {
       `/conversations/${conversationId}/messages`,
       { method: 'POST', body: JSON.stringify({ schoolId, body }) },
     ),
+
+  sendStaffReply: (conversationId: string, schoolId: string, body: string, isInternal: boolean) =>
+    request<{ message: Message }>(`/conversations/${conversationId}/staff-reply`, {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, body, isInternal }),
+    }),
+
+  resolveConversation: (conversationId: string, schoolId: string) =>
+    request<{ conversation: Conversation }>(`/conversations/${conversationId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ schoolId }),
+    }),
+
+  listDocuments: (schoolId: string, params: { studentId?: string; status?: string } = {}) => {
+    const qs = new URLSearchParams({ schoolId, ...params } as Record<string, string>)
+    return request<{ documents: DocumentSummary[] }>(`/documents?${qs.toString()}`)
+  },
+
+  getDocument: (documentId: string, schoolId: string) =>
+    request<{ document: DocumentSummary }>(`/documents/${documentId}?schoolId=${schoolId}`),
+
+  uploadDocument: (form: FormData) => request<{ document: DocumentSummary }>('/documents', { method: 'POST', body: form }),
+
+  confirmDocumentCategory: (documentId: string, schoolId: string, category: string) =>
+    request<{ document: DocumentSummary }>(`/documents/${documentId}/confirm-category`, {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, category }),
+    }),
+
+  listEscalations: (schoolId: string, status?: string) => {
+    const qs = new URLSearchParams({ schoolId, ...(status ? { status } : {}) })
+    return request<{ escalations: Escalation[] }>(`/escalations?${qs.toString()}`)
+  },
+
+  resolveEscalation: (escalationId: string, schoolId: string, resolutionNotes: string) =>
+    request<{ escalation: Escalation }>(`/escalations/${escalationId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, resolutionNotes }),
+    }),
 }
 
 export interface Conversation {

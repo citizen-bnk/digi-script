@@ -52,12 +52,12 @@ documentRouter.post(
 
 documentRouter.get(
   "/",
-  requireRole(...ROLE_GROUPS.documentReview),
+  requireRole(...ROLE_GROUPS.documentRead),
   asyncHandler(async (req, res) => {
     const schoolId = req.query.schoolId as string;
     requireSameSchool(schoolId, req.user!);
 
-    const documents = await listDocuments(schoolId, {
+    const documents = await listDocuments(schoolId, req.user!, {
       studentId: req.query.studentId as string | undefined,
       status: req.query.status as DocumentStatus | undefined,
     });
@@ -67,11 +67,11 @@ documentRouter.get(
 
 documentRouter.get(
   "/:documentId",
-  requireRole(...ROLE_GROUPS.documentReview),
+  requireRole(...ROLE_GROUPS.documentRead),
   asyncHandler(async (req, res) => {
     const schoolId = req.query.schoolId as string;
     requireSameSchool(schoolId, req.user!);
-    const document = await getDocument(req.params.documentId, schoolId);
+    const document = await getDocument(req.user!, req.params.documentId, schoolId);
     res.json({ document });
   }),
 );

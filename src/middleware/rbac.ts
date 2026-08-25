@@ -47,4 +47,9 @@ export const ROLE_GROUPS = {
   // assertCanAccessStudent), unlike documentReview roles which can also
   // upload and categorize documents.
   studentRoster: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR, Role.TEACHER],
+  // PRD Application Spec section 7 (Teacher Module): "View school
+  // documents (no upload access)". Read access only — upload/categorize
+  // stays on documentReview. Class-scoping for TEACHER is enforced in
+  // document.service.ts the same way listStudents scopes the roster.
+  documentRead: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR, Role.TEACHER],
 } as const;
