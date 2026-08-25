@@ -70,6 +70,10 @@ describe("conversations, AI response, and escalation handoff", () => {
       .get(`/conversations/${conversationId}?schoolId=${schoolId}`)
       .set("Authorization", `Bearer ${parentToken}`);
     expect(convo.body.conversation.status).toBe("OPEN");
+    // Regression: GET /conversations/:id must include the student relation
+    // (a client needs the child's name to render a conversation header),
+    // the same way GET /conversations already does for the list view.
+    expect(convo.body.conversation.student.name).toBe("Jane Smith");
   });
 
   it("escalates an unanswerable question and lets staff resolve it", async () => {

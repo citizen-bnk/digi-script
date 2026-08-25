@@ -35,7 +35,12 @@ Scope questions the screenshot catalog raised have been resolved:
 | Scanning Team (bulk ID/document capture with OCR field extraction) | **Deferred** — not in the PRD's role list; not built. |
 | Full Financial Management module (budgets, transactions, bank reconciliation, treasury/payroll integration) | **Deferred** — matches the PRD's own release plan, which places full financial consolidation after MVP Phase 1. The `Budget` model remains a minimal stub. |
 
-No frontend code exists yet for either visual system.
+The Parent flow of System A now has a working frontend:
+[`web/parent-app`](./web/parent-app) — an installable PWA (React + Vite +
+`vite-plugin-pwa`) covering onboarding/login, chat home, a conversation
+thread, My Child, Notifications, and Profile, wired to the real backend
+below. The rest of System A (Teacher/Supervisor screens) and all of
+System B (the web back-office) remain unbuilt.
 
 ## Architecture
 
@@ -139,10 +144,11 @@ phases in the PRD):
 - Semantic search / vector embeddings (PRD 4.6) — `QueryService` currently
   matches by keyword against a student's own categorized documents, not a
   real knowledge-base index
-- Mobile PWA and native apps, and any web frontend at all (see
-  `docs/design/mobile-app-screens-catalog.md` for the design reference,
-  and **Product decisions** above for which of the two visual systems
-  each future app should follow)
+- The rest of System A (Teacher/Supervisor mobile screens) and all of
+  System B (the web back-office) — only the Parent flow is built so far,
+  in [`web/parent-app`](./web/parent-app). Native (non-PWA) apps aren't
+  planned; see `docs/design/mobile-app-screens-catalog.md` and
+  **Product decisions** above for which visual system each app follows.
 - Multi-school financial consolidation and government report generation
   (the `Budget` model exists as a minimal seed for this, not the full
   reporting engine described in `mvp-use-cases.md`) — deferred by decision
@@ -199,4 +205,7 @@ docs/specs/                 source PRD / application spec / use cases
 docs/design/                screenshot-derived UI reference (see the
                              catalog's "two visual systems" caveat before
                              using it for frontend work)
+web/parent-app/              System A Parent flow — installable PWA
+                             (React + Vite), see its own README for how
+                             to run it and test installability
 ```

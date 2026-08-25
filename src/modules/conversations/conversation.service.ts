@@ -57,7 +57,10 @@ export async function getOrCreateConversation(
 }
 
 async function getConversationOrThrow(conversationId: string, schoolId: string) {
-  const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: { student: true },
+  });
   if (!conversation || conversation.schoolId !== schoolId) {
     throw AppError.notFound("Conversation not found");
   }
