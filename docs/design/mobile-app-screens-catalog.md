@@ -5,6 +5,12 @@ Source: `Digi_Script_Mobile_App_Screen_Shots.pdf` (12 pages), extracted to
 every screen shown, grouped by role/module, so future frontend work can be
 built to match pixel-for-pixel rather than re-interpreted from scratch.
 
+> **Update:** every open question this catalog raises below has since been
+> decided — see the [README's **Product decisions**](../../README.md#product-decisions)
+> section for the resolutions. The sections below are left as originally
+> written (they're still an accurate description of the source screenshots),
+> so treat any "unresolved"/"flagging, not deciding" language as historical.
+
 ## ⚠️ Two distinct visual systems in this deck
 
 The screenshots come from **two different design systems** that don't share

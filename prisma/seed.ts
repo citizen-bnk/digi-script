@@ -64,12 +64,24 @@ async function main() {
     },
   });
 
+  const studentLogin = await prisma.user.create({
+    data: {
+      schoolId: school.id,
+      role: Role.STUDENT,
+      name: student.name,
+      email: "jane.smith@riverside.example",
+      passwordHash,
+      studentId: student.id,
+    },
+  });
+
   console.log("Seeded:");
   console.log(`  School:    ${school.name} (${school.id})`);
   console.log(`  Principal: ${principal.email} / Password123!`);
   console.log(`  Teacher:   ${teacher.email} / Password123!`);
   console.log(`  Parent:    ${parent.email} / Password123!`);
   console.log(`  Student:   ${student.name} (${student.id})`);
+  console.log(`  Student login: ${studentLogin.email} / Password123!`);
 }
 
 main()

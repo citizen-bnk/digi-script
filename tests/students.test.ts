@@ -95,4 +95,79 @@ describe("student records and RBAC scoping", () => {
     expect(res.status).toBe(200);
     expect(res.body.student.id).toBe(jane.student.id);
   });
+
+  it("lets a STUDENT log in and view only their own record via /students/me", async () => {
+    const jane = await createStudent(principalToken, schoolId, { name: "Jane Smith" });
+    await createStudent(principalToken, schoolId, { name: "Unrelated Kid" });
+
+    await createUser(principalToken, schoolId, {
+      role: "STUDENT",
+      email: "jane.student@test.example",
+      studentId: jane.student.id,
+    });
+    const student = await login("jane.student@test.example", "Password123!");
+
+    const res = await request(app).get("/students/me").set("Authorization", `Bearer ${student.token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.student.id).toBe(jane.student.id);
+    expect(res.body.student.name).toBe("Jane Smith");
+  });
+
+  it("blocks a STUDENT from viewing another student's record or the school roster", async () => {
+    const jane = await createStudent(principalToken, schoolId, { name: "Jane Smith" });
+    const other = await createStudent(principalToken, schoolId, { name: "Unrelated Kid" });
+
+    await createUser(principalToken, schoolId, {
+      role: "STUDENT",
+      email: "jane.student@test.example",
+      studentId: jane.student.id,
+    });
+    const student = await login("jane.student@test.example", "Password123!");
+
+    const otherRecord = await request(app)
+      .get(`/students/${other.student.id}`)
+      .set("Authorization", `Bearer ${student.token}`);
+    expect(otherRecord.status).toBe(403);
+
+    const roster = await request(app)
+      .get(`/students?schoolId=${schoolId}`)
+      .set("Authorization", `Bearer ${student.token}`);
+    expect(roster.status).toBe(403);
+  });
+
+  it("requires a studentId when creating a STUDENT user, and rejects a second login for the same student", async () => {
+    const jane = await createStudent(principalToken, schoolId, { name: "Jane Smith" });
+
+    const missingStudentId = await request(app)
+      .post("/users")
+      .set("Authorization", `Bearer ${principalToken}`)
+      .send({
+        schoolId,
+        name: "Test User",
+        email: "no-student-id@test.example",
+        role: "STUDENT",
+        temporaryPassword: "Password123!",
+      });
+    expect(missingStudentId.status).toBe(400);
+
+    await createUser(principalToken, schoolId, {
+      role: "STUDENT",
+      email: "jane.student@test.example",
+      studentId: jane.student.id,
+    });
+
+    const duplicate = await request(app)
+      .post("/users")
+      .set("Authorization", `Bearer ${principalToken}`)
+      .send({
+        schoolId,
+        name: "Test User",
+        email: "jane.student-2@test.example",
+        role: "STUDENT",
+        studentId: jane.student.id,
+        temporaryPassword: "Password123!",
+      });
+    expect(duplicate.status).toBe(409);
+  });
 });

@@ -64,6 +64,11 @@ enum Role {
   TEACHER // Read-only class access, no escalation/financial access
   PARENT // Own-child-only access
   SUPPORT // Escalation queue + audit log access, no document management
+  // Login + read-only access to their own Student record only (see
+  // User.studentId). No courses/assignments/grades — deliberately scoped
+  // narrow; see docs/design/mobile-app-screens-catalog.md for the fuller
+  // student app shown in the design deck, deferred for now.
+  STUDENT
 }
 
 enum UserStatus {
@@ -85,12 +90,17 @@ model User {
   // PRD 4.8: "Teachers can access student records for their classes" — scopes
   // a TEACHER/SUPERVISOR to one class. Null means unscoped (e.g. SUPER_USER).
   assignedClassName String?
+  // Set only for role STUDENT: the one Student record this login may view.
+  // Unique because a student login maps to exactly one student, unlike
+  // ParentStudentLink which is many-to-many for parents.
+  studentId         String?    @unique
   lastLoginAt       DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
   district District? @relation(fields: [districtId], references: [id])
   school   School?   @relation(fields: [schoolId], references: [id])
+  student  Student?  @relation("StudentSelfUser", fields: [studentId], references: [id])
 
   uploadedDocuments     Document[]          @relation("DocumentUploadedBy")
   assignedEscalations   Escalation[]        @relation("EscalationAssignee")
@@ -125,6 +135,7 @@ model Student {
   documents     Document[]
   escalations   Escalation[]
   conversations Conversation[]
+  selfUser      User?               @relation("StudentSelfUser")
 
   @@index([schoolId])
   @@map("students")

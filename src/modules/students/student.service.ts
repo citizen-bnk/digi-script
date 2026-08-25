@@ -96,6 +96,13 @@ export async function assertCanAccessStudent(user: AuthenticatedUser, studentId:
     return student;
   }
 
+  if (user.role === Role.STUDENT) {
+    if (user.studentId !== studentId) {
+      throw AppError.forbidden("Students may only access their own record");
+    }
+    return student;
+  }
+
   if (user.role === Role.TEACHER || user.role === Role.SUPERVISOR) {
     if (user.assignedClassName && student.className !== user.assignedClassName) {
       throw AppError.forbidden("Staff may only access students in their assigned class");
@@ -107,6 +114,16 @@ export async function assertCanAccessStudent(user: AuthenticatedUser, studentId:
 
 export async function getStudent(user: AuthenticatedUser, studentId: string) {
   return assertCanAccessStudent(user, studentId);
+}
+
+// PRD-deferred Student portal, scoped to login + read-only self-view only
+// (see docs/design/mobile-app-screens-catalog.md — no courses/assignments/
+// grades yet). Mirrors listMyChildren's pattern for parents.
+export async function getOwnStudentRecord(user: AuthenticatedUser) {
+  if (!user.studentId) {
+    throw AppError.forbidden("This account is not linked to a student record");
+  }
+  return assertCanAccessStudent(user, user.studentId);
 }
 
 export interface LinkParentInput {

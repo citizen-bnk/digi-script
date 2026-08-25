@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
   districtId: string | null;
   email: string;
   assignedClassName: string | null;
+  // Set only for role STUDENT: the one Student record this login may view.
+  studentId: string | null;
 }
 
 declare global {

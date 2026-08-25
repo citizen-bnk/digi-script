@@ -13,6 +13,7 @@ export function toAuthenticatedUser(user: User): AuthenticatedUser {
     districtId: user.districtId,
     email: user.email,
     assignedClassName: user.assignedClassName,
+    studentId: user.studentId,
   };
 }
 

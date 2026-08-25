@@ -13,6 +13,8 @@ export interface CreateUserInput {
   role: Exclude<Role, "SYSTEM_OWNER">;
   temporaryPassword: string;
   assignedClassName?: string;
+  // Required when role is STUDENT — the Student record this login maps to.
+  studentId?: string;
 }
 
 // PRD 4.2 User & Role Management: SUPER_USER creates users and assigns roles
@@ -21,6 +23,20 @@ export async function createSchoolUser(input: CreateUserInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {
     throw AppError.conflict("A user with this email already exists");
+  }
+
+  if (input.role === Role.STUDENT) {
+    if (!input.studentId) {
+      throw AppError.badRequest("studentId is required when role is STUDENT");
+    }
+    const student = await prisma.student.findUnique({ where: { id: input.studentId } });
+    if (!student || student.schoolId !== input.schoolId) {
+      throw AppError.notFound("Student not found");
+    }
+    const existingLogin = await prisma.user.findUnique({ where: { studentId: input.studentId } });
+    if (existingLogin) {
+      throw AppError.conflict("This student already has a login");
+    }
   }
 
   const passwordHash = await bcrypt.hash(input.temporaryPassword, 12);
@@ -34,6 +50,7 @@ export async function createSchoolUser(input: CreateUserInput) {
       phone: input.phone,
       passwordHash,
       assignedClassName: input.assignedClassName,
+      studentId: input.role === Role.STUDENT ? input.studentId : undefined,
     },
   });
 
