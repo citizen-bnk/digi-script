@@ -3,6 +3,15 @@
 // machine's LAN IP in a .env.local file (see README "Testing on a phone").
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
+// True when the app is served from a real host but is still pointed at the
+// default localhost backend — i.e. VITE_API_URL was never set for this build,
+// so no request can possibly succeed and the reason is worth saying out loud
+// rather than surfacing as a generic network failure.
+const API_URL_UNCONFIGURED =
+  !import.meta.env.VITE_API_URL &&
+  typeof window !== 'undefined' &&
+  !['localhost', '127.0.0.1'].includes(window.location.hostname)
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -31,7 +40,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...(options.headers as Record<string, string>),
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers })
+  if (API_URL_UNCONFIGURED) {
+    throw new ApiError(
+      0,
+      'This deployment has no backend configured. Set VITE_API_URL to a reachable DigiScript API and redeploy.',
+    )
+  }
+
+  // A network-level failure (backend down, wrong host, blocked mixed content)
+  // rejects with a TypeError, which would otherwise reach the UI as an opaque
+  // "something went wrong" — name the address we actually tried instead.
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers })
+  } catch {
+    throw new ApiError(0, `Can't reach the DigiScript API at ${API_URL}.`)
+  }
+
   const isJson = res.headers.get('content-type')?.includes('application/json')
   const body = isJson ? await res.json() : undefined
 

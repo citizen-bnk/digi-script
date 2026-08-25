@@ -208,32 +208,47 @@ The root [`vercel.json`](./vercel.json) scopes a Vercel deployment to
 **`web/mobile-app` only** — Vercel's zero-config build otherwise tries to
 build this repo's root as a single app, which is the Express + Postgres
 backend, not something Vercel's static/serverless model is set up to run
-as-is. `installCommand` is a no-op (`true`); the real install and build
-both happen inside `web/mobile-app` via `buildCommand`, and
-`outputDirectory` points at its `dist/`. `"framework": "vite"` tells
-Vercel to treat the output as a static Vite build rather than guessing
-"Node server" from the root's `express` dependency (which is what a bare
-`outputDirectory` without a declared framework did — it looked for an
-`app.js`/`index.js`/`server.js` serverless entrypoint and failed).
+as-is.
 
-**When creating the Vercel project, leave "Root Directory" at the repo
-root (the default)** — don't point it at `web/mobile-app`. This
-`vercel.json`'s `buildCommand` already does `cd web/mobile-app`, so if
-Root Directory is *also* set to `web/mobile-app`, the `cd` has nothing to
-find and the build fails. (The alternative, cleaner setup — skip this
-`vercel.json` entirely and set Root Directory to `web/mobile-app` in the
-dashboard instead, letting Vercel auto-detect Vite on its own — works too,
-just don't mix the two approaches.)
+It does this with an explicit `builds` entry naming `@vercel/static-build`
+against `web/mobile-app/package.json`, with `distDir: "dist"`. Declaring
+the builder outright is deliberate: it takes Vercel's framework
+auto-detection out of the picture entirely. Detection reads the *root*
+`package.json`, sees `express`, and concludes "Node server" — at which
+point it ignores the static output and hunts for an
+`app.js`/`index.js`/`server.js` serverless entrypoint, failing with
+`No entrypoint found in output directory`. A `builds` entry can't fall
+into that path, and it also takes precedence over the dashboard's Build &
+Development Settings, so a stray override there can't silently undo it.
 
-You still need to set one environment variable in the Vercel project's
-dashboard (Settings → Environment Variables) for the deployed frontend to
-reach a backend: **`VITE_API_URL`**, pointing at wherever the backend is
-actually hosted (Vercel's serverless functions aren't a good fit for this
-backend's persistent Postgres connections and JWT session model — deploy
-it somewhere like Fly.io, Render, or a plain VM instead, and point
-`VITE_API_URL` there). Without it, the deployed app falls back to
-`http://localhost:4000`, which won't resolve for anyone but you on your
-own machine.
+`@vercel/static-build` runs install and `npm run build` with its working
+directory set to `web/mobile-app`, so **leave "Root Directory" at the repo
+root (the default)** when creating the project — pointing it at
+`web/mobile-app` would make the `builds` path resolve against the wrong
+place.
+
+The `routes` block pairs with `builds` (`rewrites` is only for the
+non-`builds` config style). `handle: filesystem` serves real files first —
+hashed assets, `sw.js`, `manifest.webmanifest` — and everything else falls
+through to `index.html`, which is what makes client-side routes survive a
+deep link or a page refresh. Without that fallback, loading `/chat`
+directly returns a 404.
+
+### Pointing it at a backend
+
+Set one environment variable in the Vercel project's dashboard (Settings →
+Environment Variables): **`VITE_API_URL`**, pointing at wherever the
+backend is actually hosted. Vercel's serverless functions aren't a good
+fit for this backend's persistent Postgres connections and JWT session
+model — deploy it somewhere like Fly.io, Render, or a plain VM, and point
+`VITE_API_URL` there.
+
+Without it the build still succeeds and the PWA still installs, but every
+API call fails: the app falls back to `http://localhost:4000`, which means
+*the visitor's own machine*, not yours. The app detects this case (served
+from a non-localhost host with no `VITE_API_URL` set) and says so
+directly — "This deployment has no backend configured" — rather than
+surfacing it as a generic network error.
 
 ## Project layout
 
