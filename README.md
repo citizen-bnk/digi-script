@@ -202,6 +202,75 @@ document ingestion → categorization → escalation pipeline, the chat →
 AI response → escalation → staff resolution pipeline, and audit log
 writes.
 
+## Deploying the backend
+
+The API needs a long-lived Node process and a persistent Postgres
+connection, which is why it doesn't go on Vercel alongside the frontend —
+serverless functions fit it badly. [`Dockerfile`](./Dockerfile) builds it
+for anywhere that runs a container (Render, Fly.io, Railway, a plain VM);
+[`render.yaml`](./render.yaml) is a Render Blueprint that provisions the
+service and its database together, and is the quickest path to a running
+API.
+
+### With Render (blueprint)
+
+1. In Render, **New → Blueprint**, and point it at this repo/branch. It
+   reads `render.yaml` and proposes a web service (`digiscript-api`) plus a
+   Postgres database (`digiscript-db`).
+2. It will prompt for **`CORS_ORIGIN`** — the only value not in the file.
+   Set it to the frontend's origin, e.g.
+   `https://digi-script-8bku.vercel.app`, no trailing slash. `DATABASE_URL`
+   is wired from the database automatically and `JWT_SECRET` is generated.
+3. Apply. First boot runs `prisma migrate deploy` via
+   [`docker-entrypoint.sh`](./docker-entrypoint.sh), so the schema is
+   created before the server starts. `/health` is the health check.
+
+### Seed the deployed database
+
+A fresh database has no accounts, so there is nothing to log in as. Seed it
+from your machine against Render's **External** connection string (the
+seeder runs through `tsx`, a dev dependency that isn't in the production
+image):
+
+```bash
+DATABASE_URL="<render-external-connection-string>" npm run seed
+```
+
+### Point the frontend at it
+
+In the Vercel project, Settings → Environment Variables, set
+**`VITE_API_URL`** to the Render service URL (e.g.
+`https://digiscript-api.onrender.com`, no trailing slash) and redeploy —
+Vite inlines env vars at build time, so an existing deployment won't pick
+it up. The two values have to agree: `CORS_ORIGIN` on Render names the
+Vercel origin, and `VITE_API_URL` on Vercel names the Render origin.
+
+### Free-tier caveats
+
+`render.yaml` specifies the free plan for both service and database so it
+costs nothing to try. Three consequences worth knowing before this carries
+anything real:
+
+- **Uploaded documents don't survive a redeploy.** Free services get no
+  persistent volume, and storage is local disk
+  (`src/services/storage/storage.service.ts`). `render.yaml` has a `disk:`
+  block ready to uncomment on a paid plan; the durable fix is an
+  `S3StorageService` behind the existing `StorageService` interface.
+- **The free database expires** after Render's trial window and is deleted.
+- **The service sleeps when idle**, so the first request after a quiet spell
+  takes roughly a minute. On a phone that reads as the app hanging on login.
+
+### Environment variables
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Postgres connection string |
+| `JWT_SECRET` | yes | ≥16 chars; changing it logs everyone out |
+| `CORS_ORIGIN` | deployments | Comma-separated origins. Unset = any origin, and the server logs a warning at startup in production |
+| `PORT` | no | Defaults to 4000 |
+| `LOCAL_STORAGE_DIR` | no | Where uploads are written |
+| `JWT_EXPIRES_IN` | no | Defaults to `12h` |
+
 ## Deploying the frontend to Vercel
 
 The root [`vercel.json`](./vercel.json) scopes a Vercel deployment to

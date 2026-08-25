@@ -7,6 +7,10 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   JWT_EXPIRES_IN: z.string().default("12h"),
+  // Comma-separated list of browser origins allowed to call this API (e.g.
+  // the deployed frontend). Unset means "allow any origin", which is fine
+  // for local development but not for a public deployment.
+  CORS_ORIGIN: z.string().optional(),
   LOCAL_STORAGE_DIR: z.string().default(".data/documents"),
   AI_CATEGORIZATION_HIGH_CONFIDENCE: z.coerce.number().default(0.85),
   AI_CATEGORIZATION_LOW_CONFIDENCE: z.coerce.number().default(0.7),

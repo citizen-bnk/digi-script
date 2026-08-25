@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import { default as helmet } from "helmet";
 import { pinoHttp } from "pino-http";
+import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -16,8 +17,20 @@ import { auditRouter } from "./modules/audit/audit.routes.js";
 export function createApp(): Express {
   const app = express();
 
+  // Behind a platform load balancer (Render, Fly, a reverse proxy), the
+  // client's real address arrives in X-Forwarded-For; without this Express
+  // reports the proxy's address instead, which would make request logs and
+  // any future IP-based limiting useless.
+  if (env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
+  const allowedOrigins = env.CORS_ORIGIN?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.use(helmet());
-  app.use(cors());
+  app.use(cors(allowedOrigins?.length ? { origin: allowedOrigins } : {}));
   app.use(express.json());
   app.use(pinoHttp({ logger }));
 
