@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, setToken, type AuthUser } from '../api/client'
+import { api, getToken, setToken, type AuthUser } from '../api/client'
 
 interface AuthContextValue {
   user: AuthUser | null
@@ -15,6 +15,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // With no stored token the answer is already known, and asking anyway
+    // costs a guaranteed 401 on every cold visit by a logged-out user —
+    // which on a host that sleeps when idle stalls the login screen behind
+    // a cold start for someone who isn't even signed in.
+    if (!getToken()) {
+      setLoading(false)
+      return
+    }
+
     api
       .me()
       .then((res) => setUser(res.user))

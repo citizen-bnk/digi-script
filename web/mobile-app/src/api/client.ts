@@ -1,7 +1,10 @@
 // Backend base URL. Defaults to localhost for same-machine testing; when
 // testing from a phone on the same network, override with the dev
 // machine's LAN IP in a .env.local file (see README "Testing on a phone").
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+// The trailing slash is stripped because request paths already start with
+// one, and a URL copied out of a hosting dashboard usually carries it —
+// which would otherwise produce "https://host//auth/login".
+const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '')
 
 // True when the app is served from a real host but is still pointed at the
 // default localhost backend — i.e. VITE_API_URL was never set for this build,
@@ -20,7 +23,7 @@ export class ApiError extends Error {
   }
 }
 
-function getToken(): string | null {
+export function getToken(): string | null {
   return localStorage.getItem('digiscript_token')
 }
 
