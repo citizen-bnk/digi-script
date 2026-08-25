@@ -210,9 +210,20 @@ build this repo's root as a single app, which is the Express + Postgres
 backend, not something Vercel's static/serverless model is set up to run
 as-is. `installCommand` is a no-op (`true`); the real install and build
 both happen inside `web/mobile-app` via `buildCommand`, and
-`outputDirectory` points at its `dist/`. This works regardless of what
-"Root Directory" a given Vercel project has configured in its dashboard
-settings.
+`outputDirectory` points at its `dist/`. `"framework": "vite"` tells
+Vercel to treat the output as a static Vite build rather than guessing
+"Node server" from the root's `express` dependency (which is what a bare
+`outputDirectory` without a declared framework did — it looked for an
+`app.js`/`index.js`/`server.js` serverless entrypoint and failed).
+
+**When creating the Vercel project, leave "Root Directory" at the repo
+root (the default)** — don't point it at `web/mobile-app`. This
+`vercel.json`'s `buildCommand` already does `cd web/mobile-app`, so if
+Root Directory is *also* set to `web/mobile-app`, the `cd` has nothing to
+find and the build fails. (The alternative, cleaner setup — skip this
+`vercel.json` entirely and set Root Directory to `web/mobile-app` in the
+dashboard instead, letting Vercel auto-detect Vite on its own — works too,
+just don't mix the two approaches.)
 
 You still need to set one environment variable in the Vercel project's
 dashboard (Settings → Environment Variables) for the deployed frontend to
