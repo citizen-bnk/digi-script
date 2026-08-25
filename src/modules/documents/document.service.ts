@@ -1,0 +1,150 @@
+import { DocumentStatus, EscalationReasonType, Sensitivity } from "@prisma/client";
+import { prisma } from "../../db/prisma.js";
+import { env } from "../../config/env.js";
+import { AppError } from "../../utils/app-error.js";
+import { storageService } from "../../services/storage/storage.service.js";
+import { categorizationService } from "../../services/ai/categorization.service.js";
+import { recordAuditEntry } from "../audit/audit.service.js";
+import { createEscalation } from "../escalations/escalation.service.js";
+
+export interface IngestDocumentInput {
+  schoolId: string;
+  uploadedByUserId: string;
+  filename: string;
+  mimeType: string;
+  buffer: Buffer;
+  studentId?: string;
+  academicYear?: string;
+  term?: string;
+  sensitivity?: Sensitivity;
+  textSample?: string;
+}
+
+function buildFolderPath(parts: { academicYear?: string; term?: string; category: string }): string {
+  return [parts.academicYear ?? "Uncategorized-Year", parts.term ?? "Uncategorized-Term", parts.category]
+    .join("/");
+}
+
+/**
+ * Core document ingestion pipeline (PRD 4.3-4.5, Use Case 2):
+ *   upload -> AI categorization -> confidence-threshold routing ->
+ *   auto-organized folder path -> escalation queue for low confidence.
+ */
+export async function ingestDocument(input: IngestDocumentInput) {
+  const stored = await storageService.save({
+    schoolId: input.schoolId,
+    filename: input.filename,
+    buffer: input.buffer,
+  });
+
+  const { category, confidence } = await categorizationService.categorize({
+    filename: input.filename,
+    textSample: input.textSample,
+  });
+
+  const categoryRecord = await prisma.documentCategory.upsert({
+    where: { name: category },
+    create: { name: category },
+    update: {},
+  });
+
+  const status =
+    confidence >= env.AI_CATEGORIZATION_LOW_CONFIDENCE ? DocumentStatus.CATEGORIZED : DocumentStatus.ESCALATED;
+
+  const document = await prisma.document.create({
+    data: {
+      schoolId: input.schoolId,
+      uploadedByUserId: input.uploadedByUserId,
+      studentId: input.studentId,
+      categoryId: categoryRecord.id,
+      categoryConfidence: confidence,
+      originalFilename: input.filename,
+      storageKey: stored.storageKey,
+      mimeType: input.mimeType,
+      sizeBytes: stored.sizeBytes,
+      status,
+      sensitivity: input.sensitivity ?? Sensitivity.NORMAL,
+      academicYear: input.academicYear,
+      term: input.term,
+      folderPath: buildFolderPath({ academicYear: input.academicYear, term: input.term, category }),
+    },
+  });
+
+  await recordAuditEntry({
+    actorUserId: input.uploadedByUserId,
+    schoolId: input.schoolId,
+    action: "DOCUMENT_UPLOADED",
+    targetType: "Document",
+    targetId: document.id,
+    metadata: { category, confidence, status },
+  });
+
+  if (status === DocumentStatus.ESCALATED) {
+    await createEscalation({
+      schoolId: input.schoolId,
+      documentId: document.id,
+      studentId: input.studentId,
+      reasonType: EscalationReasonType.LOW_CONFIDENCE_CATEGORIZATION,
+      reason: `AI confidence ${(confidence * 100).toFixed(0)}% for suggested category "${category}" is below the review threshold`,
+      aiConfidence: confidence,
+    });
+  }
+
+  return document;
+}
+
+export async function listDocuments(schoolId: string, filters: { studentId?: string; status?: DocumentStatus }) {
+  return prisma.document.findMany({
+    where: { schoolId, studentId: filters.studentId, status: filters.status },
+    include: { category: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getDocument(documentId: string, schoolId: string) {
+  const document = await prisma.document.findUnique({ where: { id: documentId }, include: { category: true } });
+  if (!document || document.schoolId !== schoolId) {
+    throw AppError.notFound("Document not found");
+  }
+  return document;
+}
+
+/** Human override of an AI-suggested category (PRD 4.4 step 6: Confirmation). */
+export async function confirmDocumentCategory(
+  documentId: string,
+  schoolId: string,
+  categoryName: string,
+  actorUserId: string,
+) {
+  const document = await getDocument(documentId, schoolId);
+
+  const categoryRecord = await prisma.documentCategory.upsert({
+    where: { name: categoryName },
+    create: { name: categoryName },
+    update: {},
+  });
+
+  const updated = await prisma.document.update({
+    where: { id: document.id },
+    data: {
+      categoryId: categoryRecord.id,
+      status: DocumentStatus.CATEGORIZED,
+      folderPath: buildFolderPath({
+        academicYear: document.academicYear ?? undefined,
+        term: document.term ?? undefined,
+        category: categoryName,
+      }),
+    },
+  });
+
+  await recordAuditEntry({
+    actorUserId,
+    schoolId,
+    action: "DOCUMENT_CATEGORY_CONFIRMED",
+    targetType: "Document",
+    targetId: document.id,
+    metadata: { category: categoryName },
+  });
+
+  return updated;
+}

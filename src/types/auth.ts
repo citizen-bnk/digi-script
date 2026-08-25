@@ -1,0 +1,20 @@
+import type { Role } from "@prisma/client";
+
+export interface AuthenticatedUser {
+  id: string;
+  role: Role;
+  schoolId: string | null;
+  districtId: string | null;
+  email: string;
+}
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      user?: AuthenticatedUser;
+    }
+  }
+}
+
+export {};
