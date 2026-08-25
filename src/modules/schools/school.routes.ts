@@ -4,7 +4,7 @@ import { validateBody } from "../../middleware/validate.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireRole, requireSameSchool, ROLE_GROUPS } from "../../middleware/rbac.js";
 import { signToken, toAuthenticatedUser } from "../../middleware/auth.js";
-import { registerSchool, getSchoolById } from "./school.service.js";
+import { registerSchool, getSchoolById, listSchools, getSchoolStats } from "./school.service.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 
 export const schoolRouter = Router();
@@ -30,13 +30,36 @@ schoolRouter.post(
   }),
 );
 
+// Declared before "/:schoolId" so the literal path is not swallowed by the
+// parameterized one.
+schoolRouter.get(
+  "/",
+  requireAuth,
+  requireRole(...ROLE_GROUPS.backOffice),
+  asyncHandler(async (req, res) => {
+    const schools = await listSchools(req.user!);
+    res.json({ schools });
+  }),
+);
+
 schoolRouter.get(
   "/:schoolId",
   requireAuth,
-  requireRole(...ROLE_GROUPS.schoolManagement),
+  requireRole(...ROLE_GROUPS.backOffice),
   asyncHandler(async (req, res) => {
     requireSameSchool(req.params.schoolId, req.user!);
     const school = await getSchoolById(req.params.schoolId);
     res.json({ school });
+  }),
+);
+
+schoolRouter.get(
+  "/:schoolId/stats",
+  requireAuth,
+  requireRole(...ROLE_GROUPS.backOffice),
+  asyncHandler(async (req, res) => {
+    requireSameSchool(req.params.schoolId, req.user!);
+    const stats = await getSchoolStats(req.params.schoolId);
+    res.json({ stats });
   }),
 );

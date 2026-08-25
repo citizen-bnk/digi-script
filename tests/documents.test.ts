@@ -194,4 +194,82 @@ describe("document ingestion, RBAC, escalation, and audit", () => {
       .attach("file", Buffer.from("trying to upload"), "NotAllowed.pdf");
     expect(uploadAttempt.status).toBe(403);
   });
+
+  it("scopes a class-assigned SUPERVISOR's documents to their class, for reads and category confirmation alike", async () => {
+    const inClass = await createStudent(principalToken, schoolId, { name: "Ada Ncube", className: "Grade 3C" });
+    const otherClass = await createStudent(principalToken, schoolId, { name: "Ben Dlamini", className: "Grade 4D" });
+
+    await request(app)
+      .post("/documents")
+      .set("Authorization", `Bearer ${principalToken}`)
+      .field("schoolId", schoolId)
+      .field("studentId", inClass.student.id)
+      .attach("file", Buffer.from("absence note"), "Absence_InClass.pdf");
+    await request(app)
+      .post("/documents")
+      .set("Authorization", `Bearer ${principalToken}`)
+      .field("schoolId", schoolId)
+      .field("studentId", otherClass.student.id)
+      .attach("file", Buffer.from("absence note"), "Absence_OtherClass.pdf");
+
+    await createUser(principalToken, schoolId, {
+      role: "SUPERVISOR",
+      email: "supervisor-3c@test.example",
+      assignedClassName: "Grade 3C",
+    });
+    const supervisor = await login("supervisor-3c@test.example", "Password123!");
+
+    const list = await request(app)
+      .get(`/documents?schoolId=${schoolId}`)
+      .set("Authorization", `Bearer ${supervisor.token}`);
+    expect(list.status).toBe(200);
+    const filenames = list.body.documents.map((d: { originalFilename: string }) => d.originalFilename);
+    expect(filenames).toContain("Absence_InClass.pdf");
+    expect(filenames).not.toContain("Absence_OtherClass.pdf");
+
+    const all = await request(app)
+      .get(`/documents?schoolId=${schoolId}`)
+      .set("Authorization", `Bearer ${principalToken}`);
+    const outOfClassId = all.body.documents.find(
+      (d: { originalFilename: string }) => d.originalFilename === "Absence_OtherClass.pdf",
+    ).id;
+
+    const readDenied = await request(app)
+      .get(`/documents/${outOfClassId}?schoolId=${schoolId}`)
+      .set("Authorization", `Bearer ${supervisor.token}`);
+    expect(readDenied.status).toBe(403);
+
+    // The write path is checked separately from the read path, so a
+    // supervisor blocked from viewing a document must not be able to
+    // recategorize it either.
+    const confirmDenied = await request(app)
+      .post(`/documents/${outOfClassId}/confirm-category`)
+      .set("Authorization", `Bearer ${supervisor.token}`)
+      .send({ schoolId, category: "Compliance - Absence Note" });
+    expect(confirmDenied.status).toBe(403);
+  });
+
+  it("leaves a SUPERVISOR with no assigned class school-wide, so whole-school cover still works", async () => {
+    const student = await createStudent(principalToken, schoolId, { name: "Chi Moyo", className: "Grade 5E" });
+    await request(app)
+      .post("/documents")
+      .set("Authorization", `Bearer ${principalToken}`)
+      .field("schoolId", schoolId)
+      .field("studentId", student.student.id)
+      .attach("file", Buffer.from("medical note"), "Medical_Grade5E.pdf");
+
+    await createUser(principalToken, schoolId, {
+      role: "SUPERVISOR",
+      email: "supervisor-roaming@test.example",
+    });
+    const roaming = await login("supervisor-roaming@test.example", "Password123!");
+
+    const list = await request(app)
+      .get(`/documents?schoolId=${schoolId}`)
+      .set("Authorization", `Bearer ${roaming.token}`);
+    expect(list.status).toBe(200);
+    expect(list.body.documents.map((d: { originalFilename: string }) => d.originalFilename)).toContain(
+      "Medical_Grade5E.pdf",
+    );
+  });
 });

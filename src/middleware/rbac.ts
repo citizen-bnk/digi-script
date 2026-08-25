@@ -52,4 +52,12 @@ export const ROLE_GROUPS = {
   // stays on documentReview. Class-scoping for TEACHER is enforced in
   // document.service.ts the same way listStudents scopes the roster.
   documentRead: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR, Role.TEACHER],
+  // The three roles served by System B, the back-office web portal
+  // (Application Spec section 2: "Web-based back office portal ... for
+  // System Owner and Super User", plus SUPPORT for the help desk). Grants
+  // only the school profile and its headline counts — SUPPORT's real reach
+  // stays defined by auditAccess and escalationHandlers, and it is
+  // deliberately absent from schoolManagement, so it cannot manage users
+  // or student records.
+  backOffice: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPPORT],
 } as const;

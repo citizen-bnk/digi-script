@@ -87,7 +87,7 @@ documentRouter.post(
   asyncHandler(async (req, res) => {
     const { schoolId, category } = confirmSchema.parse(req.body);
     requireSameSchool(schoolId, req.user!);
-    const document = await confirmDocumentCategory(req.params.documentId, schoolId, category, req.user!.id);
+    const document = await confirmDocumentCategory(req.params.documentId, schoolId, category, req.user!);
     res.json({ document });
   }),
 );

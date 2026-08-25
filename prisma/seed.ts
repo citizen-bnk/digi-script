@@ -6,12 +6,60 @@ const prisma = new PrismaClient();
 async function main() {
   const passwordHash = await bcrypt.hash("Password123!", 12);
 
+  // System B (the back-office portal) is district-level for a SYSTEM_OWNER,
+  // so the seed needs a district and more than one school under it —
+  // otherwise the Multi-School Overview has nothing to compare.
+  const district = await prisma.district.create({
+    data: { name: "Johannesburg Central District" },
+  });
+
   const school = await prisma.school.create({
     data: {
+      districtId: district.id,
       name: "Riverside Primary School",
       address: "12 Main Road, Johannesburg",
       phone: "+27 11 555 0100",
       principalName: "Jennifer Johnson",
+    },
+  });
+
+  const secondSchool = await prisma.school.create({
+    data: {
+      districtId: district.id,
+      name: "Hilltop Primary School",
+      address: "48 Ridge Avenue, Johannesburg",
+      phone: "+27 11 555 0180",
+      principalName: "Samuel Khumalo",
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      districtId: district.id,
+      role: Role.SYSTEM_OWNER,
+      name: "Kari Group Operations",
+      email: "owner@karigroup.example",
+      passwordHash,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      schoolId: secondSchool.id,
+      role: Role.SUPER_USER,
+      name: "Samuel Khumalo",
+      email: "principal@hilltop.example",
+      passwordHash,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      schoolId: school.id,
+      role: Role.SUPPORT,
+      name: "Thandi Support",
+      email: "support@riverside.example",
+      passwordHash,
     },
   });
 
@@ -86,8 +134,15 @@ async function main() {
     },
   });
 
-  console.log("Seeded:");
+  console.log("Seeded (every login uses Password123!):");
+  console.log(`  District:   ${district.name}`);
   console.log(`  School:     ${school.name} (${school.id})`);
+  console.log(`  School 2:   ${secondSchool.name} (${secondSchool.id})`);
+  console.log("  -- System B (back-office web portal) --");
+  console.log("  System Owner: owner@karigroup.example");
+  console.log("  Super User:   principal@riverside.example  (also principal@hilltop.example)");
+  console.log("  Support:      support@riverside.example");
+  console.log("  -- System A (mobile PWA) --");
   console.log(`  Principal:  ${principal.email} / Password123!`);
   console.log(`  Supervisor: ${supervisor.email} / Password123!`);
   console.log(`  Teacher:    ${teacher.email} / Password123!`);

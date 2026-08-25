@@ -95,11 +95,23 @@ export async function ingestDocument(input: IngestDocumentInput) {
   return document;
 }
 
-// TEACHER sees only school-wide documents (no student attached) plus
-// documents belonging to students in their assigned class — the same
-// class-scoping rule listStudents applies to the roster (PRD 4.8).
-function teacherClassScopeWhere(user: AuthenticatedUser) {
-  if (user.role !== Role.TEACHER || !user.assignedClassName) {
+/**
+ * TEACHER and SUPERVISOR are scoped to their assigned class — Application
+ * Spec section 2: "Supervisor/Nurse: Access to student records for assigned
+ * class/department" and "Teacher/Staff: Access to student records for
+ * assigned class". This mirrors the roster, where listStudents and
+ * assertCanAccessStudent already narrow both roles the same way; without it
+ * a supervisor blocked from a student's record could still read that
+ * student's documents.
+ *
+ * Both see school-wide documents (no student attached) as well. Staff with
+ * no class assigned are not narrowed, which is how a supervisor covering the
+ * whole school is represented.
+ */
+const CLASS_SCOPED_ROLES: readonly Role[] = [Role.TEACHER, Role.SUPERVISOR];
+
+function classScopeWhere(user: AuthenticatedUser) {
+  if (!CLASS_SCOPED_ROLES.includes(user.role) || !user.assignedClassName) {
     return {};
   }
   return { OR: [{ studentId: null }, { student: { className: user.assignedClassName } }] };
@@ -111,7 +123,7 @@ export async function listDocuments(
   filters: { studentId?: string; status?: DocumentStatus },
 ) {
   return prisma.document.findMany({
-    where: { schoolId, studentId: filters.studentId, status: filters.status, ...teacherClassScopeWhere(user) },
+    where: { schoolId, studentId: filters.studentId, status: filters.status, ...classScopeWhere(user) },
     include: { category: true },
     orderBy: { createdAt: "desc" },
   });
@@ -128,16 +140,28 @@ async function findDocumentOrThrow(documentId: string, schoolId: string) {
   return document;
 }
 
-export async function getDocument(user: AuthenticatedUser, documentId: string, schoolId: string) {
-  const document = await findDocumentOrThrow(documentId, schoolId);
+/**
+ * Row-level check for a document already loaded by id. Applies to reads and
+ * to category confirmation alike — a class-scoped supervisor who cannot view
+ * a document must not be able to recategorize it either.
+ */
+function assertCanAccessDocument(
+  user: AuthenticatedUser,
+  document: { studentId: string | null; student: { className: string | null } | null },
+) {
   if (
-    user.role === Role.TEACHER &&
+    CLASS_SCOPED_ROLES.includes(user.role) &&
     user.assignedClassName &&
     document.studentId &&
     document.student?.className !== user.assignedClassName
   ) {
-    throw AppError.forbidden("Teachers may only access documents for their assigned class");
+    throw AppError.forbidden("You may only access documents for your assigned class");
   }
+}
+
+export async function getDocument(user: AuthenticatedUser, documentId: string, schoolId: string) {
+  const document = await findDocumentOrThrow(documentId, schoolId);
+  assertCanAccessDocument(user, document);
   return document;
 }
 
@@ -146,9 +170,11 @@ export async function confirmDocumentCategory(
   documentId: string,
   schoolId: string,
   categoryName: string,
-  actorUserId: string,
+  user: AuthenticatedUser,
 ) {
+  const actorUserId = user.id;
   const document = await findDocumentOrThrow(documentId, schoolId);
+  assertCanAccessDocument(user, document);
 
   const categoryRecord = await prisma.documentCategory.upsert({
     where: { name: categoryName },
