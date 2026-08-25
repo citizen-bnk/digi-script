@@ -202,6 +202,28 @@ document ingestion → categorization → escalation pipeline, the chat →
 AI response → escalation → staff resolution pipeline, and audit log
 writes.
 
+## Deploying the frontend to Vercel
+
+The root [`vercel.json`](./vercel.json) scopes a Vercel deployment to
+**`web/mobile-app` only** — Vercel's zero-config build otherwise tries to
+build this repo's root as a single app, which is the Express + Postgres
+backend, not something Vercel's static/serverless model is set up to run
+as-is. `installCommand` is a no-op (`true`); the real install and build
+both happen inside `web/mobile-app` via `buildCommand`, and
+`outputDirectory` points at its `dist/`. This works regardless of what
+"Root Directory" a given Vercel project has configured in its dashboard
+settings.
+
+You still need to set one environment variable in the Vercel project's
+dashboard (Settings → Environment Variables) for the deployed frontend to
+reach a backend: **`VITE_API_URL`**, pointing at wherever the backend is
+actually hosted (Vercel's serverless functions aren't a good fit for this
+backend's persistent Postgres connections and JWT session model — deploy
+it somewhere like Fly.io, Render, or a plain VM instead, and point
+`VITE_API_URL` there). Without it, the deployed app falls back to
+`http://localhost:4000`, which won't resolve for anyone but you on your
+own machine.
+
 ## Project layout
 
 ```
