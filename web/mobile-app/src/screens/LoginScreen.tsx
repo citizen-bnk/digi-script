@@ -15,19 +15,23 @@ export function LoginScreen() {
   // Demo mode is discovered rather than configured in this app: the API
   // answers /demo/personas only when DEMO_MODE is on, and 404s otherwise.
   // That keeps the two from disagreeing about whether a demo is running.
-  const [demoGroups, setDemoGroups] = useState<DemoPersonaGroup[]>([])
+  // null means demo mode is off (the API 404s), which is different from
+  // demo mode being on with nothing seeded — that shows a "load demo data"
+  // prompt rather than silently rendering nothing.
+  const [demo, setDemo] = useState<{ demoMode: boolean; groups: DemoPersonaGroup[] } | null>(null)
+  const [demoNonce, setDemoNonce] = useState(0)
   const [busyEmail, setBusyEmail] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     api
       .demoPersonas('mobile')
-      .then((res) => !cancelled && setDemoGroups(res.groups))
-      .catch(() => !cancelled && setDemoGroups([]))
+      .then((res) => !cancelled && setDemo(res))
+      .catch(() => !cancelled && setDemo(null))
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [demoNonce])
 
   async function signInAs(user: DemoPersonaUser) {
     setError(null)
@@ -101,8 +105,13 @@ export function LoginScreen() {
         </button>
       </form>
 
-      {demoGroups.length > 0 && (
-        <DemoPickerScreen groups={demoGroups} onPick={signInAs} busyEmail={busyEmail} />
+      {demo?.demoMode && (
+        <DemoPickerScreen
+          groups={demo.groups}
+          onPick={signInAs}
+          onSeeded={() => setDemoNonce((n) => n + 1)}
+          busyEmail={busyEmail}
+        />
       )}
     </div>
   )

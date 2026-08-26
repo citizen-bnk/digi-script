@@ -180,6 +180,12 @@ export const api = {
     request<{ demoMode: boolean; groups: DemoPersonaGroup[] }>(`/demo/personas?app=${app}`),
 
   /**
+   * Loads the demo district. Open only while the database is empty, which is
+   * how the login screen can offer it as a one-click bootstrap.
+   */
+  seedDemo: () => request<{ seeded: boolean }>('/demo/seed', { method: 'POST' }),
+
+  /**
    * Signs in a demo persona by email alone — the server holds the demo
    * password, so no credential is ever sent to or held by this app.
    */

@@ -309,7 +309,9 @@ frontends are built with `VITE_API_URL=/api` so they call their own host.
    `scripts/deploy-migrate.mjs`, which skips quietly when no
    `DATABASE_URL` is set and fails the build loudly when one is set but
    cannot be migrated.
-4. **Load the demo data:**
+4. **Load the demo data.** Open the deployment and click **Load demo
+   data** under the login form — with demo mode on and an empty database,
+   both apps offer it. Or from a terminal:
    ```bash
    curl -X POST https://<your-deployment>/api/demo/seed
    ```
@@ -317,6 +319,12 @@ frontends are built with `VITE_API_URL=/api` so they call their own host.
    nothing can be lost from. Once there are users it requires a
    `SYSTEM_OWNER` token, so it doubles as a "reset the demo" button between
    runs without exposing a way for anyone to wipe it.
+
+   Until it is loaded, the mobile app shows no demo accounts at all: every
+   one of its roles is school-scoped, and there are no schools yet. The back
+   office still lists District Office, whose personas belong to the district
+   rather than a school. That asymmetry is why an unseeded deployment looks
+   like only the mobile app is broken.
 
 `DEMO_MODE` needs no setting: it defaults on.
 

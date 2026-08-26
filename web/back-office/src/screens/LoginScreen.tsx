@@ -14,19 +14,23 @@ export default function LoginScreen() {
   // answers /demo/personas only when DEMO_MODE is on, and lists only schools
   // a SYSTEM_OWNER has switched on. An empty or failed answer means the demo
   // section simply isn't rendered, leaving an ordinary login form.
-  const [demoGroups, setDemoGroups] = useState<DemoPersonaGroup[]>([])
+  // null means demo mode is off (the API 404s), which is different from
+  // demo mode being on with nothing seeded — that shows a "load demo data"
+  // prompt rather than silently rendering nothing.
+  const [demo, setDemo] = useState<{ demoMode: boolean; groups: DemoPersonaGroup[] } | null>(null)
+  const [demoNonce, setDemoNonce] = useState(0)
   const [busyEmail, setBusyEmail] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     api
       .demoPersonas('back-office')
-      .then((res) => !cancelled && setDemoGroups(res.groups))
-      .catch(() => !cancelled && setDemoGroups([]))
+      .then((res) => !cancelled && setDemo(res))
+      .catch(() => !cancelled && setDemo(null))
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [demoNonce])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -55,7 +59,7 @@ export default function LoginScreen() {
 
   return (
     <div className="login-page">
-      <div className={`login-card${demoGroups.length > 0 ? ' with-demo' : ''}`}>
+      <div className={`login-card${demo?.demoMode ? ' with-demo' : ''}`}>
         <form onSubmit={onSubmit}>
           <div className="mark">◈</div>
           <h1>DigiScript Back Office</h1>
@@ -92,8 +96,13 @@ export default function LoginScreen() {
           </button>
         </form>
 
-        {demoGroups.length > 0 && (
-          <DemoPicker groups={demoGroups} onPick={signInAs} busyEmail={busyEmail} />
+        {demo?.demoMode && (
+          <DemoPicker
+            groups={demo.groups}
+            onPick={signInAs}
+            onSeeded={() => setDemoNonce((n) => n + 1)}
+            busyEmail={busyEmail}
+          />
         )}
       </div>
     </div>
