@@ -351,8 +351,9 @@ async function main() {
   console.log(`  Users:      ${DEMO_PERSONAS.length} (2 per role)`);
   console.log(`  Documents:  ${documentCount} (through the real categorization pipeline)`);
   console.log(`  Escalations:${escalationCount} total, ${pendingCount} still open`);
-  console.log("\n  Run the API with DEMO_MODE=true and both apps show a role picker.");
-  console.log("  Sign-in is one click — no password is shown, typed, or sent to the browser.\n");
+  console.log("\n  Demo mode is on by default, so both apps show a demo section under their");
+  console.log("  login form. Sign-in is one click — no password is shown, typed, or sent.");
+  console.log("  Set DEMO_MODE=false to hide it entirely.\n");
 }
 
 main()

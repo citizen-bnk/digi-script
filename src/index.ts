@@ -13,8 +13,8 @@ if (env.NODE_ENV === "production" && !env.CORS_ORIGIN) {
 
 if (env.DEMO_MODE) {
   logger.warn(
-    "DEMO_MODE is on — GET /demo/personas serves seeded logins and their passwords to anyone who asks. " +
-      "Never run this against a database holding real learner data.",
+    "DEMO_MODE is on (the current default) — anyone who can reach this API can sign in as a seeded " +
+      "demo account without a password. Set DEMO_MODE=false before this database holds real learner data.",
   );
 }
 

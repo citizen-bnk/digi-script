@@ -228,8 +228,11 @@ Office/Principal/Support Desk), so the picker can never land you on a
 | `DEMO_MODE` env var | The whole deployment | Whoever runs the server |
 | `School.demoModeEnabled` | One school | A **System Owner**, from the back office's Multi-School screen |
 
-`DEMO_MODE` decides whether demo mode exists at all; with it off, both apps
-show a plain login form and `/demo/*` returns 404. Once it is on, each
+`DEMO_MODE` decides whether demo mode exists at all. It currently
+**defaults to on** — every deployment is a demo deployment while the
+product is being shown — so a deployment is demo-capable unless you set
+`DEMO_MODE=false`, at which point both apps show a plain login form and
+`/demo/*` returns 404. Once it is on, each
 school is switched on or off individually — a school that is off
 contributes no demo accounts to either picker, and its personas are refused
 by the sign-in endpoint even if someone calls it directly. District Office
@@ -253,9 +256,9 @@ demo is running, and the picker can only offer accounts the seed actually
 created — both read the same list in `src/modules/demo/demo.personas.ts`.
 
 > `DEMO_MODE` makes working logins available to anyone who can reach the
-> API — no password required. It defaults to off, and the server logs a
-> warning at startup when it is on. Never enable it against a database
-> holding real learner data.
+> API — no password required. It is **on by default**, and the server logs
+> a warning at startup whenever it is on. Set `DEMO_MODE=false` before any
+> deployment holds real learner data.
 
 Everything in the demo is live, not staged: the seeded documents are
 pushed through the real categorization pipeline, so their confidence

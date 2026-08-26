@@ -32,6 +32,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Explicit even though it is the current default, so the switch is
+      # visible in the dashboard. Set to false before real learner data.
+      - key: DEMO_MODE
+        value: true
       - key: PORT
         value: 4000
       - key: DATABASE_URL

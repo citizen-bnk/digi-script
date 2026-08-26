@@ -16,6 +16,13 @@ import AuditScreen from './screens/AuditScreen'
 
 const BACK_OFFICE_ROLES = ['SYSTEM_OWNER', 'SUPER_USER', 'SUPPORT']
 
+// Vite's BASE_URL always carries a trailing slash ("/admin/"), but React
+// Router requires the URL to *start with* the basename — and "/admin" does
+// not start with "/admin/", so the router silently renders nothing and the
+// page comes up blank. Strip it, keeping "/" when the app is served from
+// the root.
+const ROUTER_BASENAME = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/'
+
 /**
  * Routes are filtered by role rather than rendered and then hidden, so a
  * SUPPORT user who types /users lands on their dashboard instead of a
@@ -64,7 +71,7 @@ function Shell() {
 
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <BrowserRouter basename={ROUTER_BASENAME}>
       <AuthProvider>
         <Shell />
       </AuthProvider>
