@@ -14,12 +14,27 @@
  *     only move the failure to the first request.
  */
 import { spawnSync } from 'node:child_process'
-import { resolveMigrationDatabaseUrl } from '../src/config/resolve-database-url.mjs'
+import {
+  MIGRATION_URL_KEYS,
+  RUNTIME_URL_KEYS,
+  resolveMigrationDatabaseUrl,
+} from '../src/config/resolve-database-url.mjs'
 
 const databaseUrl = resolveMigrationDatabaseUrl()
 
 if (!databaseUrl) {
+  // Skipping still lets a first deploy succeed before a database exists, but
+  // a bare one-line skip reads like routine housekeeping in a green build
+  // log — and the consequence only shows up later, as a 503 from a
+  // deployment that otherwise looks fine. Name what was looked for and what
+  // happens next, here, where someone is already reading.
+  const names = [...new Set([...RUNTIME_URL_KEYS, ...MIGRATION_URL_KEYS])]
   console.log('[migrate] No database configured — skipping migrations.')
+  console.log(`[migrate] Looked for: ${names.join(', ')}`)
+  console.log('[migrate] This deployment will build and serve, but every API')
+  console.log('[migrate] request answers 503 until one of those is set on the')
+  console.log('[migrate] project AND the deployment is rebuilt — variables only')
+  console.log('[migrate] reach builds that start after they are added.')
   process.exit(0)
 }
 
