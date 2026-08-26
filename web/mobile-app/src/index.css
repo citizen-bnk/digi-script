@@ -602,3 +602,8 @@ a {
   .switch,
   .switch::after { transition: none; }
 }
+
+/* A fault, not a setting: the demo section is missing because something
+   broke, and the amber treatment separates that from the neutral notes. */
+.info-note.is-fault { background: #fdf3d8; }
+.info-note.is-fault .info-note-icon { background: #9a6700; }

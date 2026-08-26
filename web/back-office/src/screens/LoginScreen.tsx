@@ -22,6 +22,9 @@ export default function LoginScreen() {
   } | null>(null)
   const [demoNonce, setDemoNonce] = useState(0)
   const [busyEmail, setBusyEmail] = useState<string | null>(null)
+  // Why the demo section is absent, when the reason is a fault rather than
+  // demo mode simply being switched off.
+  const [demoFailure, setDemoFailure] = useState<string | null>(null)
   // Local only: collapses the demo section for a plain sign-in. It cannot
   // switch demo mode ON — that is a per-school setting a system owner
   // controls, and the server is the authority on it.
@@ -31,8 +34,27 @@ export default function LoginScreen() {
     let cancelled = false
     api
       .demoPersonas('back-office')
-      .then((res) => !cancelled && setDemo(res))
-      .catch(() => !cancelled && setDemo(null))
+      .then((res) => {
+        if (cancelled) return
+        setDemo(res)
+        setDemoFailure(null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setDemo(null)
+        // A 404 is the API saying demo mode is deliberately off, which is
+        // not a fault and needs no explanation. Anything else — the API
+        // unconfigured, the database unreachable, the network down — used to
+        // render identically to that, so a broken deployment looked like a
+        // deliberate setting. Say which it is.
+        setDemoFailure(
+          err instanceof ApiError && err.status === 404
+            ? null
+            : err instanceof ApiError
+              ? err.message
+              : 'Could not reach the DigiScript API.',
+        )
+      })
     return () => {
       cancelled = true
     }
@@ -129,6 +151,27 @@ export default function LoginScreen() {
             </button>
           </form>
         </section>
+
+        {demoFailure && (
+          <div className="info-note is-fault">
+            <span className="info-note-icon" aria-hidden="true">
+              !
+            </span>
+            <div>
+              <p style={{ margin: 0 }}>
+                <strong>Demo accounts unavailable.</strong> {demoFailure}
+              </p>
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ marginTop: 10 }}
+                onClick={() => setDemoNonce((n) => n + 1)}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
 
         {demo?.demoMode && (
           <>
