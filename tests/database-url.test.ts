@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { resolveDatabaseUrl, resolveMigrationDatabaseUrl } from "../src/config/resolve-database-url.mjs";
+import {
+  configuredDatabaseUrlNames,
+  resolveDatabaseUrl,
+  resolveMigrationDatabaseUrl,
+} from "../src/config/resolve-database-url.mjs";
 
 /**
  * Vercel's Postgres integration never sets `DATABASE_URL` — it sets
@@ -10,6 +14,10 @@ import { resolveDatabaseUrl, resolveMigrationDatabaseUrl } from "../src/config/r
  * stays fixed.
  */
 const MANAGED_KEYS = [
+  "digi_DATABASE_URL",
+  "digi_DATABASE_URL_UNPOOLED",
+  "acme_POSTGRES_PRISMA_URL",
+  "SHADOW_DATABASE_URL",
   "DATABASE_URL",
   "POSTGRES_PRISMA_URL",
   "POSTGRES_URL",
@@ -96,5 +104,65 @@ describe("the migration script under a bare node", () => {
     );
 
     expect(output).toContain("No database configured");
+  });
+});
+
+/**
+ * A Vercel storage integration prefixes every variable it writes when the
+ * project asks it to — `digi_DATABASE_URL`, `digi_DATABASE_URL_UNPOOLED`.
+ * The database is then correctly attached and completely invisible to code
+ * looking only for bare names: the build logs "No database configured" and
+ * the deployment answers 503, with nothing in the dashboard looking wrong.
+ */
+describe("integration-prefixed names", () => {
+  it("finds a prefixed connection when no bare one exists", () => {
+    process.env.digi_DATABASE_URL = "postgresql://prefixed";
+    expect(resolveDatabaseUrl()).toBe("postgresql://prefixed");
+  });
+
+  it("gives migrations the prefixed unpooled connection", () => {
+    process.env.digi_DATABASE_URL = "postgresql://prefixed-pooled";
+    process.env.digi_DATABASE_URL_UNPOOLED = "postgresql://prefixed-direct";
+    expect(resolveMigrationDatabaseUrl()).toBe("postgresql://prefixed-direct");
+  });
+
+  it("does not mistake the pooled name for the unpooled one", () => {
+    // digi_DATABASE_URL_UNPOOLED must not satisfy a search for _DATABASE_URL,
+    // or the app would run against the direct connection and migrations
+    // against nothing in particular.
+    process.env.digi_DATABASE_URL_UNPOOLED = "postgresql://direct-only";
+    expect(resolveDatabaseUrl()).toBeUndefined();
+    expect(resolveMigrationDatabaseUrl()).toBe("postgresql://direct-only");
+  });
+
+  it("prefers an explicit bare name over a prefixed one", () => {
+    // Someone who sets DATABASE_URL by hand means it, whatever an
+    // integration also wrote.
+    process.env.DATABASE_URL = "postgresql://chosen";
+    process.env.digi_DATABASE_URL = "postgresql://integration";
+    expect(resolveDatabaseUrl()).toBe("postgresql://chosen");
+  });
+
+  it("never adopts Prisma's shadow database", () => {
+    // SHADOW_DATABASE_URL ends in _DATABASE_URL but names a throwaway that
+    // Prisma creates and drops; running the app against it would lose data.
+    process.env.SHADOW_DATABASE_URL = "postgresql://shadow";
+    expect(resolveDatabaseUrl()).toBeUndefined();
+    expect(configuredDatabaseUrlNames()).not.toContain("SHADOW_DATABASE_URL");
+  });
+
+  it("resolves the same store on every call when several are attached", () => {
+    process.env.acme_POSTGRES_PRISMA_URL = "postgresql://acme";
+    process.env.digi_DATABASE_URL = "postgresql://digi";
+    // DATABASE_URL outranks POSTGRES_PRISMA_URL by key order, prefixed or not.
+    expect(resolveDatabaseUrl()).toBe("postgresql://digi");
+    expect(resolveDatabaseUrl()).toBe("postgresql://digi");
+  });
+
+  it("lists the names it found, and never their values", () => {
+    process.env.digi_DATABASE_URL = "postgresql://user:secret@host/db";
+    const names = configuredDatabaseUrlNames();
+    expect(names).toContain("digi_DATABASE_URL");
+    expect(names.join(" ")).not.toContain("secret");
   });
 });

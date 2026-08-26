@@ -11,6 +11,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   MIGRATION_URL_KEYS,
   RUNTIME_URL_KEYS,
+  configuredDatabaseUrlNames,
 } from "../src/config/resolve-database-url.mjs";
 
 const app = express();
@@ -48,7 +49,9 @@ async function mount() {
         ...(missing.includes("DATABASE_URL")
           ? {
               databaseUrlAlternatives: [...RUNTIME_URL_KEYS, ...MIGRATION_URL_KEYS],
-              hint: "Attaching a managed Postgres sets these for you; any one of the runtime names satisfies DATABASE_URL. Environment variables only reach deployments built after they are added, so redeploy once they are set.",
+              // Names only — these variables hold credentials.
+              databaseUrlNamesFound: configuredDatabaseUrlNames(),
+              hint: "Attaching a managed Postgres sets these for you, under these names or a prefixed form of them. Environment variables only reach deployments built after they are added, so redeploy once they are set.",
             }
           : {}),
       });

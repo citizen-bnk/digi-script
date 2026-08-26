@@ -31,6 +31,7 @@ if (!databaseUrl) {
   const names = [...new Set([...RUNTIME_URL_KEYS, ...MIGRATION_URL_KEYS])]
   console.log('[migrate] No database configured — skipping migrations.')
   console.log(`[migrate] Looked for: ${names.join(', ')}`)
+  console.log('[migrate] ...and any prefixed form, e.g. myapp_DATABASE_URL.')
   console.log('[migrate] This deployment will build and serve, but every API')
   console.log('[migrate] request answers 503 until one of those is set on the')
   console.log('[migrate] project AND the deployment is rebuilt — variables only')
