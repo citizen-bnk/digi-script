@@ -36,6 +36,13 @@ describe.each(clients)("api client (%s)", (_name, path) => {
     expect(source).toMatch(/access protection/i);
   });
 
+  it("explains a 405 as the request never reaching the API", () => {
+    // Static hosting allows GET and HEAD only, so a rejected method means the
+    // /api rewrite fell through to the static build.
+    expect(source).toContain('res.status === 405')
+    expect(source).toMatch(/static file hosting/i)
+  })
+
   it("still surfaces the API's own error message when it sends one", () => {
     // A real 403 from our own code carries {error}; that must win over the
     // generic description.

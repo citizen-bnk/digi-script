@@ -87,6 +87,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
  * nothing like an API failure until you read the content type.
  */
 function describeNonJson(res: Response, contentType: string): string {
+  // 405 is diagnostic gold: our API implements the methods it exposes, so a
+  // rejected method means the request never reached it. Static file hosting
+  // allows GET and HEAD only, which is exactly what answers when the /api
+  // rewrite fails and the path falls through to the static build.
+  if (res.status === 405) {
+    return `The API rejected the request method (HTTP 405), which means it was answered by static file hosting rather than the API itself — the /api route is not reaching the serverless function.`
+  }
   if (contentType.includes('text/html')) {
     return `The API returned a web page instead of data (HTTP ${res.status}). Something is answering in front of it — most often deployment access protection, which has to be turned off or bypassed for ${API_URL} to be reachable.`
   }

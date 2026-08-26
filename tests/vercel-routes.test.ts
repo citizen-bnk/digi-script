@@ -39,33 +39,66 @@ function isServable(target: string): boolean {
   return looksLikeAFile && staticMounts.some((mount) => target.startsWith(`${mount}/`));
 }
 
-function resolveRoute(requestPath: string): string {
-  const filesystemIndex = config.routes.findIndex((route) => route.handle === "filesystem");
-  let current = requestPath;
+/**
+ * Two readings of the rewrite phase, because the earlier version of this
+ * test encoded only one — and the deployment behaved like the other.
+ *
+ * "stop" applies the first matching rule and moves on to the filesystem.
+ * "continue" keeps applying rules to the rewritten path. Under "continue",
+ * a bare `/(.*)` catch-all re-captures a path that an earlier rule already
+ * aimed at the function and drags it into the static tree; the request then
+ * lands on static hosting, which answers a GET with the SPA shell and a
+ * POST with 405. That is precisely what the deployment did while this test
+ * was green.
+ *
+ * Rather than guess which reading is right, the route table is written so
+ * that both give the same answer, and both are asserted below.
+ */
+type Semantics = "stop" | "continue";
 
-  for (const route of config.routes.slice(0, filesystemIndex)) {
+function applyPhase(routes: typeof config.routes, from: string, semantics: Semantics): string {
+  let current = from;
+  for (const route of routes) {
+    if (!route.src) continue;
     const match = new RegExp(`^${route.src}$`).exec(current);
-    if (match) {
-      current = route.dest!.replace(/\$(\d+)/g, (_, group: string) => match[Number(group)] ?? "");
-      break;
-    }
-  }
-
-  if (isServable(current)) return current;
-
-  for (const route of config.routes.slice(filesystemIndex + 1)) {
-    const match = new RegExp(`^${route.src}$`).exec(current);
-    if (match) {
-      return route.dest!.replace(/\$(\d+)/g, (_, group: string) => match[Number(group)] ?? "");
-    }
+    if (!match) continue;
+    current = route.dest!.replace(/\$(\d+)/g, (_, group: string) => match[Number(group)] ?? "");
+    if (semantics === "stop") break;
   }
   return current;
 }
 
+function resolveRoute(requestPath: string, semantics: Semantics = "stop"): string {
+  const filesystemIndex = config.routes.findIndex((route) => route.handle === "filesystem");
+
+  const current = applyPhase(config.routes.slice(0, filesystemIndex), requestPath, semantics);
+  if (isServable(current)) return current;
+
+  return applyPhase(config.routes.slice(filesystemIndex + 1), current, "stop");
+}
+
+const SEMANTICS: Semantics[] = ["stop", "continue"];
+
 describe("vercel.json routing", () => {
-  it("sends every /api path to the serverless function", () => {
+  it.each(SEMANTICS)("sends every /api path to the function (%s semantics)", (semantics) => {
     for (const requestPath of ["/api/health", "/api/auth/login", "/api/demo/personas", "/api/demo/seed"]) {
-      expect(resolveRoute(requestPath), `${requestPath} must reach the API`).toBe("/api/index");
+      expect(
+        resolveRoute(requestPath, semantics),
+        `${requestPath} must reach the API under ${semantics} semantics`,
+      ).toBe("/api/index");
+    }
+  });
+
+  it("keeps the catch-alls from re-capturing an API path", () => {
+    // The guard that makes both readings agree. Without it, /api/index is
+    // matched again by a bare /(.*) and rewritten into the static tree.
+    for (const route of config.routes) {
+      if (!route.src || !route.dest?.includes("mobile-app")) continue;
+      expect(
+        new RegExp(`^${route.src}$`).test("/api/index"),
+        `${route.src} must not match an API path`,
+      ).toBe(false);
+      expect(new RegExp(`^${route.src}$`).test("/api/health")).toBe(false);
     }
   });
 
@@ -89,9 +122,13 @@ describe("vercel.json routing", () => {
     expect(resolveRoute("/sw.js")).toBe("/web/mobile-app/sw.js");
   });
 
-  it("never lets an API path fall through to an app's HTML", () => {
+  it.each(SEMANTICS)("never lets an API path reach an app's HTML (%s)", (semantics) => {
+    // Falling through to static hosting is what produced "Request failed
+    // with status 405" on every POST: static serving allows GET and HEAD
+    // only, so the method — not the path — was being rejected.
     for (const requestPath of ["/api/health", "/api/students", "/api/anything/at/all"]) {
-      expect(resolveRoute(requestPath)).not.toMatch(/index\.html$/);
+      expect(resolveRoute(requestPath, semantics)).not.toMatch(/index\.html$/);
+      expect(resolveRoute(requestPath, semantics)).not.toMatch(/^\/web\//);
     }
   });
 });

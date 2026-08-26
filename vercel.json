@@ -25,9 +25,9 @@
       "dest": "/web/mobile-app/sw.js",
       "headers": { "cache-control": "public, max-age=0, must-revalidate" }
     },
-    { "src": "/(.*)", "dest": "/web/mobile-app/$1" },
+    { "src": "/((?!api(?:/|$))(?!web/).*)", "dest": "/web/mobile-app/$1" },
     { "handle": "filesystem" },
     { "src": "/web/back-office/(.*)", "dest": "/web/back-office/index.html" },
-    { "src": "/(.*)", "dest": "/web/mobile-app/index.html" }
+    { "src": "/((?!api(?:/|$)).*)", "dest": "/web/mobile-app/index.html" }
   ]
 }
