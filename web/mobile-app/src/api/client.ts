@@ -119,7 +119,28 @@ export interface Escalation {
   student?: { id: string; name: string } | null
 }
 
+export interface DemoPersonaUser {
+  name: string
+  email: string
+  password: string
+  subtitle: string
+}
+
+export interface DemoPersonaGroup {
+  role: string
+  label: string
+  blurb: string
+  users: DemoPersonaUser[]
+}
+
 export const api = {
+  /**
+   * Demo sign-in picker. Returns 404 when the API has DEMO_MODE off, which
+   * is how the login screen decides whether to offer it at all.
+   */
+  demoPersonas: (app: 'mobile' | 'back-office') =>
+    request<{ demoMode: boolean; groups: DemoPersonaGroup[] }>(`/demo/personas?app=${app}`),
+
   login: (email: string, password: string) =>
     request<{ user: AuthUser; token: string }>('/auth/login', {
       method: 'POST',

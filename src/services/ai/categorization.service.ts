@@ -32,17 +32,31 @@ export class HeuristicCategorizationService implements CategorizationService {
   async categorize(input: { filename: string; textSample?: string }): Promise<CategorizationResult> {
     const haystack = `${input.filename} ${input.textSample ?? ""}`.toLowerCase();
 
+    // The longest match across every rule wins, not the first rule that
+    // happens to match. Taking the first would let a coarse keyword in an
+    // earlier rule beat a specific one later in the list — "absent" claiming
+    // an absence note for Attendance Register — which contradicts the
+    // confidence formula below, where a longer match already means a more
+    // specific one.
+    let best: { category: string; keyword: string } | null = null;
     for (const rule of KEYWORD_RULES) {
-      const hit = rule.keywords.find((keyword) => haystack.includes(keyword));
-      if (hit) {
-        // Longer, more specific keyword matches are treated as higher confidence.
-        const confidence = Math.min(0.98, 0.75 + hit.length / 100);
-        return {
-          category: rule.category,
-          confidence,
-          reasons: [`Contains "${hit}"-related keywords`, `Matches the "${rule.category}" naming pattern`],
-        };
+      for (const keyword of rule.keywords) {
+        if (haystack.includes(keyword) && (best === null || keyword.length > best.keyword.length)) {
+          best = { category: rule.category, keyword };
+        }
       }
+    }
+
+    if (best) {
+      const confidence = Math.min(0.98, 0.75 + best.keyword.length / 100);
+      return {
+        category: best.category,
+        confidence,
+        reasons: [
+          `Contains "${best.keyword}"-related keywords`,
+          `Matches the "${best.category}" naming pattern`,
+        ],
+      };
     }
 
     return { category: "Other", confidence: 0.4, reasons: ["No matching category keywords found"] };

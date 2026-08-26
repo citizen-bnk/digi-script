@@ -67,9 +67,16 @@ npm run dev    # starts the API on :4000
 ```
 
 Then open the URL Vite prints (typically `http://localhost:5173`) and log
-in as any of the seeded accounts (see the root README's "Getting started"
-for the full list) — the app routes you to the right home screen
-automatically based on your role.
+in as any of the seeded accounts — the app routes you to the right home
+screen automatically based on your role.
+
+### Demo mode
+
+Run the API with `DEMO_MODE=true` and the login screen becomes a role
+picker: Supervisor/Nurse, Teacher, Parent, Learner, each with the two
+seeded people behind it, one click to sign in. Nothing is typed. See the
+root README's "Running a demo" for the seeded district and the warning
+that goes with `DEMO_MODE`.
 
 ## Testing in a desktop browser
 

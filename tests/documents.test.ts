@@ -38,6 +38,19 @@ describe("document ingestion, RBAC, escalation, and audit", () => {
     expect(escalations.body.escalations).toHaveLength(0);
   });
 
+  it("picks the most specific matching category, not the first rule that matches", async () => {
+    // "absent" (Attendance Register) and "absence note" (Compliance) both
+    // match this text; the longer, more specific keyword must win.
+    const res = await request(app)
+      .post("/documents")
+      .set("Authorization", `Bearer ${principalToken}`)
+      .field("schoolId", schoolId)
+      .attach("file", Buffer.from("Absence note. The learner was absent on 4 March."), "Absence_Note.pdf");
+
+    expect(res.status).toBe(201);
+    expect(res.body.document.category.name).toBe("Compliance - Absence Note");
+  });
+
   it("routes a low-confidence upload to the escalation queue", async () => {
     const res = await request(app)
       .post("/documents")

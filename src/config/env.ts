@@ -11,6 +11,13 @@ const envSchema = z.object({
   // the deployed frontend). Unset means "allow any origin", which is fine
   // for local development but not for a public deployment.
   CORS_ORIGIN: z.string().optional(),
+  // Demo mode exposes seeded logins, passwords included, through
+  // GET /demo/personas so a demonstrator can sign in as any role with one
+  // click. It must never be on for a deployment holding real learner data.
+  DEMO_MODE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   LOCAL_STORAGE_DIR: z.string().default(".data/documents"),
   AI_CATEGORIZATION_HIGH_CONFIDENCE: z.coerce.number().default(0.85),
   AI_CATEGORIZATION_LOW_CONFIDENCE: z.coerce.number().default(0.7),

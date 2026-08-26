@@ -34,12 +34,22 @@ documentRouter.post(
     const meta = uploadMetaSchema.parse(req.body);
     requireSameSchool(meta.schoolId, req.user!);
 
+    // The categorizer is built to read document text, but this endpoint had
+    // no way to supply it, so every uploaded file was categorized on its
+    // filename alone. Decoding the head of the buffer as UTF-8 is a
+    // dev-grade stand-in for extraction: for a text upload it is the
+    // document, and for a binary PDF it is noise that matches no keyword —
+    // no worse than the filename-only behaviour it replaces. Real
+    // extraction (PDF parsing, OCR) belongs behind CategorizationService.
+    const textSample = req.file.buffer.subarray(0, 4096).toString("utf8");
+
     const document = await ingestDocument({
       schoolId: meta.schoolId,
       uploadedByUserId: req.user!.id,
       filename: req.file.originalname,
       mimeType: req.file.mimetype,
       buffer: req.file.buffer,
+      textSample,
       studentId: meta.studentId,
       academicYear: meta.academicYear,
       term: meta.term,

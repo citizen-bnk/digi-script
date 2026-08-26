@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { ApiError } from '../api/client'
+import { api, ApiError, type DemoPersonaGroup, type DemoPersonaUser } from '../api/client'
+import { DemoPickerScreen } from './DemoPickerScreen'
 
 export function LoginScreen() {
   const { login } = useAuth()
@@ -10,6 +11,39 @@ export function LoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Demo mode is discovered rather than configured in this app: the API
+  // answers /demo/personas only when DEMO_MODE is on, and 404s otherwise.
+  // That keeps the two from disagreeing about whether a demo is running.
+  const [demoGroups, setDemoGroups] = useState<DemoPersonaGroup[] | null>(null)
+  const [checkingDemo, setCheckingDemo] = useState(true)
+  const [showEmailForm, setShowEmailForm] = useState(false)
+  const [busyEmail, setBusyEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .demoPersonas('mobile')
+      .then((res) => !cancelled && setDemoGroups(res.groups))
+      .catch(() => !cancelled && setDemoGroups(null))
+      .finally(() => !cancelled && setCheckingDemo(false))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function signInAs(user: DemoPersonaUser) {
+    setError(null)
+    setBusyEmail(user.email)
+    try {
+      await login(user.email, user.password)
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : `Could not sign in as ${user.name}.`)
+    } finally {
+      setBusyEmail(null)
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -23,6 +57,22 @@ export function LoginScreen() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (checkingDemo) {
+    return <div className="screen" />
+  }
+
+  if (demoGroups && demoGroups.length > 0 && !showEmailForm) {
+    return (
+      <DemoPickerScreen
+        groups={demoGroups}
+        onPick={signInAs}
+        onUseEmail={() => setShowEmailForm(true)}
+        busyEmail={busyEmail}
+        error={error}
+      />
+    )
   }
 
   return (
@@ -68,6 +118,12 @@ export function LoginScreen() {
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign In'}
         </button>
+
+        {demoGroups && demoGroups.length > 0 && (
+          <button type="button" className="demo-link" onClick={() => setShowEmailForm(false)}>
+            ← Back to the demo role picker
+          </button>
+        )}
       </form>
     </div>
   )

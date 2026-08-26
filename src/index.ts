@@ -11,6 +11,13 @@ if (env.NODE_ENV === "production" && !env.CORS_ORIGIN) {
   );
 }
 
+if (env.DEMO_MODE) {
+  logger.warn(
+    "DEMO_MODE is on — GET /demo/personas serves seeded logins and their passwords to anyone who asks. " +
+      "Never run this against a database holding real learner data.",
+  );
+}
+
 app.listen(env.PORT, () => {
   logger.info(`DigiScript core system listening on port ${env.PORT}`);
 });

@@ -84,13 +84,16 @@ npm run seed
 npm run dev      # API on :4000
 ```
 
-Seeded back-office logins (all `Password123!`):
+### Demo mode
 
-| Role | Email |
-| --- | --- |
-| System Owner | `owner@karigroup.example` |
-| Super User | `principal@riverside.example` |
-| Support | `support@riverside.example` |
+Run the API with `DEMO_MODE=true` and this app's login screen becomes a
+role picker: District Office / Principal / Support Desk, each with the two
+seeded people behind it, one click to sign in. Nothing is typed. See the
+root README's "Running a demo" for the seeded district and the warning
+that goes with `DEMO_MODE`.
+
+Without demo mode it is an ordinary email/password form. The seeded
+accounts all use the password `Demo1234!` — `npm run seed` prints them.
 
 Point at a different API with `VITE_API_URL` in `.env.local`:
 

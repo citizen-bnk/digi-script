@@ -194,13 +194,52 @@ cp .env.example .env        # fill in DATABASE_URL / JWT_SECRET
 docker compose up -d        # starts Postgres, or point DATABASE_URL at your own
 npm install
 npm run prisma:migrate      # applies the schema
-npm run seed                # creates a demo school + one user per role
+npm run seed                # loads the demo district (see "Running a demo")
 npm run dev                 # starts the API on :4000
 ```
 
-Demo login (from `npm run seed`): `principal@riverside.example` /
-`Password123!` (also `supervisor@`, `teacher@`, and `parent@` at the same
-domain, and `jane.smith@riverside.example` for the seeded student login).
+## Running a demo
+
+`npm run seed` loads a South African school district — Gauteng East, two
+schools, learners and staff with names from several SA language groups,
+Rand amounts, SA grades and school terms — sized so PRD use cases 1-4 can
+be walked without setting anything up first. It is safe to re-run between
+demo runs: it clears prior data and starts over.
+
+Start the API with demo mode on:
+
+```bash
+DEMO_MODE=true npm run dev
+```
+
+Both apps then replace their login form with a **role picker**: choose a
+role, then choose which of the two seeded people to be, and one click
+signs you in. Nothing is typed. Each app offers only the roles it serves —
+the mobile app shows Supervisor/Teacher/Parent/Learner, the back office
+shows District Office/Principal/Support Desk — so the picker can never
+land you on a "wrong app" screen. An "email address instead" link is
+always there as a fallback.
+
+The apps discover demo mode rather than being configured for it: they call
+`GET /demo/personas`, which the API serves only when `DEMO_MODE=true` and
+404s otherwise. So the two can't disagree about whether a demo is running,
+and the picker can only ever offer accounts the seed actually created —
+both read the same list in `src/modules/demo/demo.personas.ts`.
+
+> **`DEMO_MODE` hands out working logins and their passwords to anyone who
+> can reach the API.** It defaults to off, and the server logs a warning at
+> startup when it is on. Never enable it against a database holding real
+> learner data.
+
+Everything in the demo is live, not staged: the seeded documents are
+pushed through the real categorization pipeline, so their confidence
+scores, folder paths and escalations are genuinely produced. Adding data
+during a demo works normally — send a parent message, upload and
+categorize a document, resolve an escalation — and it lands alongside the
+seeded data.
+
+All demo accounts use the password `Demo1234!`. `npm run seed` prints a
+summary of what it created.
 
 ### Testing
 

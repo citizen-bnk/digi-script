@@ -41,6 +41,33 @@ describe("conversations, AI response, and escalation handoff", () => {
     expect(second.body.conversation.id).toBe(first.body.conversation.id);
   });
 
+  it("keeps a general enquiry separate from a thread about a specific child", async () => {
+    const { studentId, parentToken } = await setupParentWithStudent(principalToken, schoolId);
+
+    const aboutChild = await request(app)
+      .post("/conversations")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({ schoolId, studentId });
+
+    // No studentId: a general question, which must open its own thread
+    // rather than being folded into the one above.
+    const general = await request(app)
+      .post("/conversations")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({ schoolId });
+
+    expect(general.status).toBe(201);
+    expect(general.body.conversation.id).not.toBe(aboutChild.body.conversation.id);
+    expect(general.body.conversation.studentId).toBeNull();
+
+    // And a repeat general enquiry still reuses the general thread.
+    const generalAgain = await request(app)
+      .post("/conversations")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({ schoolId });
+    expect(generalAgain.body.conversation.id).toBe(general.body.conversation.id);
+  });
+
   it("answers a well-matched question from categorized documents without escalating", async () => {
     const { studentId, parentToken } = await setupParentWithStudent(principalToken, schoolId);
 

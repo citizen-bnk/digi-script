@@ -32,7 +32,11 @@ export async function getOrCreateConversation(
     where: {
       schoolId: input.schoolId,
       parentUserId: user.id,
-      studentId: input.studentId,
+      // `?? null` matters: Prisma drops an `undefined` filter entirely, so a
+      // general enquiry with no child attached would match — and silently
+      // reuse — an existing thread about a specific child. A parent with two
+      // children would find their questions merged into one child's thread.
+      studentId: input.studentId ?? null,
       status: { not: ConversationStatus.RESOLVED },
     },
     orderBy: { createdAt: "desc" },

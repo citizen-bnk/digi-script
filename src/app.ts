@@ -13,6 +13,7 @@ import { documentRouter } from "./modules/documents/document.routes.js";
 import { escalationRouter } from "./modules/escalations/escalation.routes.js";
 import { conversationRouter } from "./modules/conversations/conversation.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
+import { demoRouter } from "./modules/demo/demo.routes.js";
 
 export function createApp(): Express {
   const app = express();
@@ -46,6 +47,7 @@ export function createApp(): Express {
   app.use("/escalations", escalationRouter);
   app.use("/conversations", conversationRouter);
   app.use("/audit", auditRouter);
+  app.use("/demo", demoRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

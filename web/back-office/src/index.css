@@ -543,3 +543,106 @@ input:focus, select:focus, textarea:focus {
   height: 100%;
   background: var(--brand);
 }
+
+/* ---------- demo sign-in picker ---------- */
+
+.demo-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #0f1a26 0%, #16324e 100%);
+  padding: 24px;
+}
+
+.demo-card {
+  width: 100%;
+  max-width: 720px;
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+}
+
+.demo-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.demo-head .mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--brand);
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.demo-head h1 { font-size: 20px; }
+.demo-head .sub { color: var(--ink-muted); font-size: 14px; margin: 4px 0 0; }
+.demo-flag { margin-left: auto; }
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: 12px;
+}
+
+.demo-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.demo-tile:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+}
+
+.demo-tile:disabled { opacity: 0.55; cursor: progress; }
+
+.demo-tile-label { font-size: 15px; font-weight: 650; color: var(--ink); }
+.demo-tile-blurb { font-size: 13px; color: var(--ink-muted); line-height: 1.45; }
+.demo-tile-count { font-size: 12px; font-weight: 650; color: var(--brand); margin-top: 6px; }
+
+.demo-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--brand-tint);
+  color: var(--brand-dark);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.demo-back { margin-top: 14px; }
+
+.demo-link {
+  display: block;
+  margin: 20px auto 0;
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.demo-link:hover { color: var(--brand); }
