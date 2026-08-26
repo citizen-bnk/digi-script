@@ -8,6 +8,10 @@
  */
 import express from "express";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  MIGRATION_URL_KEYS,
+  RUNTIME_URL_KEYS,
+} from "../src/config/resolve-database-url.mjs";
 
 const app = express();
 
@@ -37,6 +41,16 @@ async function mount() {
           ? `The API is not configured. Set these environment variables and redeploy: ${missing.join(", ")}.`
           : "The API failed to start. Check the deployment logs.",
         missingConfiguration: missing,
+        // Naming DATABASE_URL alone is misleading on a platform that sets a
+        // different name: someone attaching a managed Postgres gets
+        // POSTGRES_* and would otherwise hand-paste a pooled URL over it,
+        // losing the unpooled connection migrations need.
+        ...(missing.includes("DATABASE_URL")
+          ? {
+              databaseUrlAlternatives: [...RUNTIME_URL_KEYS, ...MIGRATION_URL_KEYS],
+              hint: "Attaching a managed Postgres sets these for you; any one of the runtime names satisfies DATABASE_URL. Environment variables only reach deployments built after they are added, so redeploy once they are set.",
+            }
+          : {}),
       });
     });
   }
