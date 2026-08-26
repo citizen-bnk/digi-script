@@ -4,12 +4,26 @@ import "dotenv/config";
 import "./database-url.js";
 import { z } from "zod";
 
+/** The forms `ms` accepts, which is what jsonwebtoken parses expiresIn with. */
+const TIMESPAN =
+  /^\d+(?:\.\d+)?\s*(?:milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i;
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
-  JWT_EXPIRES_IN: z.string().default("12h"),
+  // Validated here rather than left to jsonwebtoken, which rejects a bad
+  // value at the moment someone signs in — an opaque 500 on the first login
+  // of a demo, far from the setting that caused it. A number is seconds; a
+  // string is a timespan in the form the `ms` library accepts.
+  JWT_EXPIRES_IN: z
+    .string()
+    .trim()
+    .default("12h")
+    .refine((value) => TIMESPAN.test(value), {
+      message: 'must be seconds (e.g. 43200) or a timespan (e.g. "12h", "7d")',
+    }),
   // Comma-separated list of browser origins allowed to call this API (e.g.
   // the deployed frontend). Unset means "allow any origin", which is fine
   // for local development but not for a public deployment.
@@ -53,8 +67,24 @@ export class EnvConfigError extends Error {
   }
 }
 
+/**
+ * A variable created in a hosting dashboard and left blank arrives as an
+ * empty string, not as absent — so `.default()` never fires and the empty
+ * value is passed on to whatever consumes it. That is how JWT_EXPIRES_IN
+ * reached jsonwebtoken as "", producing an unhandled 500 on the first
+ * sign-in of a working deployment. Blank means unset here.
+ */
+function withoutBlanks(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const cleaned: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === "string" && value.trim() === "") continue;
+    cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 function loadEnv(): Env {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse(withoutBlanks(process.env));
   if (!parsed.success) {
     const fields = parsed.error.flatten().fieldErrors;
     console.error("Invalid environment configuration:", fields);
