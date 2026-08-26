@@ -162,6 +162,9 @@ export interface DemoPersonaUser {
   name: string
   email: string
   subtitle: string
+  /** null for district staff, who belong to no single school. */
+  schoolKey: string | null
+  schoolName: string | null
 }
 
 export interface DemoPersonaGroup {
@@ -177,7 +180,14 @@ export const api = {
    * is how the login screen decides whether to offer it at all.
    */
   demoPersonas: (app: 'mobile' | 'back-office') =>
-    request<{ demoMode: boolean; groups: DemoPersonaGroup[] }>(`/demo/personas?app=${app}`),
+    request<{
+      demoMode: boolean
+      /** Whether the demo district exists yet — an empty group list means
+       *  something different before and after seeding. */
+      seeded: boolean
+      schools: { key: string; name: string; seeded: boolean; demoModeEnabled: boolean }[]
+      groups: DemoPersonaGroup[]
+    }>(`/demo/personas?app=${app}`),
 
   /**
    * Loads the demo district. Open only while the database is empty, which is

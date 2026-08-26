@@ -54,14 +54,35 @@ demoRouter.use((_req, _res, next) => {
   next();
 });
 
+/**
+ * The demo schools as they currently stand in the database: whether each one
+ * exists yet, and whether its switch is on. Both frontends need this to tell
+ * apart the two ways the persona list comes back empty — nothing seeded, and
+ * every school switched off — which call for opposite responses.
+ */
+async function demoSchoolState() {
+  const rows = await prisma.school.findMany({
+    where: { name: { in: DEMO_SCHOOLS.map((school) => school.name) } },
+    select: { name: true, demoModeEnabled: true },
+  });
+  const byName = new Map(rows.map((row) => [row.name, row.demoModeEnabled]));
+
+  const schools = DEMO_SCHOOLS.map((school) => ({
+    key: school.key,
+    name: school.name,
+    seeded: byName.has(school.name),
+    demoModeEnabled: byName.get(school.name) ?? false,
+  }));
+
+  return {
+    schools,
+    enabledKeys: new Set(schools.filter((s) => s.demoModeEnabled).map((s) => s.key as SchoolKey)),
+  };
+}
+
 /** Which demo schools currently have the switch on, as persona school keys. */
 async function enabledSchoolKeys(): Promise<Set<SchoolKey>> {
-  const enabled = await prisma.school.findMany({
-    where: { demoModeEnabled: true },
-    select: { name: true },
-  });
-  const enabledNames = new Set(enabled.map((school) => school.name));
-  return new Set(DEMO_SCHOOLS.filter((school) => enabledNames.has(school.name)).map((school) => school.key));
+  return (await demoSchoolState()).enabledKeys;
 }
 
 /**
@@ -82,7 +103,18 @@ demoRouter.get(
           ? BACK_OFFICE_ROLES
           : [...BACK_OFFICE_ROLES, ...MOBILE_APP_ROLES];
 
-    res.json({ demoMode: true, groups: personasForRoles(roles, await enabledSchoolKeys()) });
+    const { schools, enabledKeys } = await demoSchoolState();
+    const groups = personasForRoles(roles, enabledKeys);
+
+    // `seeded` answers "does the demo district exist yet". Without it an
+    // empty group list is ambiguous, and the apps were offering to load demo
+    // data when the real cause was a system owner switching every school off.
+    res.json({
+      demoMode: true,
+      seeded: schools.some((school) => school.seeded),
+      schools,
+      groups,
+    });
   }),
 );
 

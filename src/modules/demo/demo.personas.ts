@@ -236,6 +236,12 @@ export function personasForRoles(roles: Role[], enabledSchoolKeys: Set<SchoolKey
         name: persona.name,
         email: persona.email,
         subtitle: persona.subtitle,
+        // Which school this person belongs to, so a picker can name it and
+        // filter by it. Null for district staff, who belong to none.
+        schoolKey: persona.schoolKey ?? null,
+        schoolName: persona.schoolKey
+          ? (DEMO_SCHOOLS.find((school) => school.key === persona.schoolKey)?.name ?? null)
+          : null,
       })),
     }))
     .filter((group) => group.users.length > 0)

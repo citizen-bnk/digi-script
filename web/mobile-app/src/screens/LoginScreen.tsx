@@ -1,26 +1,38 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api, ApiError, type DemoPersonaGroup, type DemoPersonaUser } from '../api/client'
 import { DemoPickerScreen } from './DemoPickerScreen'
+import { BrandCap, CapIcon, ChevronIcon, EyeIcon, LockIcon, SchoolIcon, UserIcon } from '../components/icons'
+
+type DemoSchool = { key: string; name: string; seeded: boolean; demoModeEnabled: boolean }
 
 export function LoginScreen() {
   const { login, loginAsDemo } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [resetHint, setResetHint] = useState(false)
 
   // Demo mode is discovered rather than configured in this app: the API
   // answers /demo/personas only when DEMO_MODE is on, and 404s otherwise.
   // That keeps the two from disagreeing about whether a demo is running.
-  // null means demo mode is off (the API 404s), which is different from
-  // demo mode being on with nothing seeded — that shows a "load demo data"
-  // prompt rather than silently rendering nothing.
-  const [demo, setDemo] = useState<{ demoMode: boolean; groups: DemoPersonaGroup[] } | null>(null)
+  const [demo, setDemo] = useState<{
+    demoMode: boolean
+    seeded: boolean
+    schools: DemoSchool[]
+    groups: DemoPersonaGroup[]
+  } | null>(null)
   const [demoNonce, setDemoNonce] = useState(0)
   const [busyEmail, setBusyEmail] = useState<string | null>(null)
+  const [schoolKey, setSchoolKey] = useState<string | null>(null)
+  // Local only: collapses the demo section when a demonstrator wants the
+  // plain login form. It cannot switch demo mode ON — that is a per-school
+  // setting a system owner controls, and the server is the authority.
+  const [demoExpanded, setDemoExpanded] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -32,6 +44,41 @@ export function LoginScreen() {
       cancelled = true
     }
   }, [demoNonce])
+
+  const seededSchools = useMemo(
+    () => demo?.schools.filter((school) => school.seeded) ?? [],
+    [demo],
+  )
+
+  // Default to the first school that actually has the demo switched on, so
+  // the screen opens on something that works rather than on a dead end.
+  useEffect(() => {
+    if (schoolKey !== null || seededSchools.length === 0) return
+    setSchoolKey((seededSchools.find((s) => s.demoModeEnabled) ?? seededSchools[0]).key)
+  }, [seededSchools, schoolKey])
+
+  const school = seededSchools.find((s) => s.key === schoolKey) ?? null
+  const schoolAllowsDemo = school ? school.demoModeEnabled : seededSchools.length === 0
+
+  // District staff belong to no school, so they stay available whichever
+  // school is selected — otherwise switching every school off would hide the
+  // very accounts needed to switch one back on.
+  const groups = useMemo(() => {
+    if (!demo) return []
+    if (!school) return demo.groups
+    return demo.groups
+      .map((group) => ({
+        ...group,
+        users: group.users.filter((u) => u.schoolKey === null || u.schoolKey === school.key),
+      }))
+      .filter((group) => group.users.length > 0)
+  }, [demo, school])
+
+  function cycleSchool() {
+    if (seededSchools.length < 2) return
+    const index = seededSchools.findIndex((s) => s.key === schoolKey)
+    setSchoolKey(seededSchools[(index + 1) % seededSchools.length].key)
+  }
 
   async function signInAs(user: DemoPersonaUser) {
     setError(null)
@@ -60,59 +107,147 @@ export function LoginScreen() {
     }
   }
 
+  const showDemoSection = demo?.demoMode === true
+
   return (
-    <div className="screen">
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <BubbleLogo size={72} />
-        <h1 style={{ fontSize: 24, margin: '16px 0 4px' }}>DigiScript</h1>
-        <p style={{ color: 'var(--neutral-600)', fontSize: 14, margin: 0 }}>Your documents. Smarter answers.</p>
-      </div>
+    <div className="auth-page">
+      <header className="auth-header">
+        <span className="auth-brand-cap">
+          <BrandCap />
+        </span>
+        <h1>DigiScript</h1>
+        <p>Smarter Schools. Stronger Futures.</p>
+      </header>
 
-      <h2 style={{ fontSize: 20, margin: '0 0 4px' }}>Welcome back</h2>
-      <p style={{ color: 'var(--neutral-600)', fontSize: 14, margin: '0 0 24px' }}>
-        Sign in to your DigiScript account
-      </p>
+      <main className="auth-body">
+        {school && (
+          <button
+            type="button"
+            className="school-card"
+            onClick={cycleSchool}
+            disabled={seededSchools.length < 2}
+            aria-label={
+              seededSchools.length < 2 ? school.name : `${school.name}. Tap to change school.`
+            }
+          >
+            <span className="school-card-icon">
+              <SchoolIcon />
+            </span>
+            <span className="school-card-text">
+              <strong>{school.name}</strong>
+              <small>
+                {seededSchools.length < 2 ? 'Demo district' : 'Tap to switch school'}
+              </small>
+            </span>
+            {seededSchools.length > 1 && <ChevronIcon />}
+          </button>
+        )}
 
-      {error && <div className="error-banner">{error}</div>}
+        {showDemoSection && (
+          <div className={`demo-banner${schoolAllowsDemo ? '' : ' is-off'}`}>
+            <span className="demo-banner-icon">
+              <CapIcon size={20} />
+            </span>
+            <span className="demo-banner-text">
+              <strong>Demo Mode</strong>
+              <small>
+                {schoolAllowsDemo
+                  ? `Run a demo using sample accounts${school ? ` for ${school.name}` : ''}`
+                  : 'Available for this school'}
+              </small>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={schoolAllowsDemo && demoExpanded}
+              aria-label="Show demo accounts"
+              className="switch"
+              // Off at the school level is not something a visitor can undo:
+              // the control reports that state rather than pretending to set it.
+              disabled={!schoolAllowsDemo}
+              onClick={() => setDemoExpanded((v) => !v)}
+            />
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="username"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@school.example"
+        {error && <div className="error-banner">{error}</div>}
+
+        {showDemoSection && (!schoolAllowsDemo || demoExpanded) && (
+          <DemoPickerScreen
+            groups={groups}
+            seeded={demo.seeded}
+            schoolAllowsDemo={schoolAllowsDemo}
+            onPick={signInAs}
+            onSeeded={() => setDemoNonce((n) => n + 1)}
+            busyEmail={busyEmail}
           />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-          />
-        </div>
-        <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Sign In'}
+        )}
+
+        {showDemoSection && schoolAllowsDemo && demoExpanded && (
+          <div className="or-divider">
+            <span>OR</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="input-shell">
+            <span className="input-icon">
+              <UserIcon />
+            </span>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              aria-label="Email"
+            />
+          </div>
+
+          <div className="input-shell">
+            <span className="input-icon">
+              <LockIcon />
+            </span>
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              aria-label="Password"
+            />
+            <button
+              type="button"
+              className="input-affix"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              <EyeIcon off={showPassword} />
+            </button>
+          </div>
+
+          <button type="submit" className="btn-login" disabled={submitting}>
+            {submitting ? 'Signing in…' : 'Login'}
+            {!submitting && <ChevronIcon />}
+          </button>
+        </form>
+
+        <button type="button" className="link-forgot" onClick={() => setResetHint(true)}>
+          Forgot Password?
         </button>
-      </form>
-
-      {demo?.demoMode && (
-        <DemoPickerScreen
-          groups={demo.groups}
-          onPick={signInAs}
-          onSeeded={() => setDemoNonce((n) => n + 1)}
-          busyEmail={busyEmail}
-        />
-      )}
+        {resetHint && (
+          // There is no self-service reset: passwords are issued by the school
+          // and reset from the back office. Saying so beats a link that goes
+          // nowhere.
+          <p className="forgot-hint">
+            Ask your school administrator to reset your password from the back office.
+          </p>
+        )}
+      </main>
     </div>
   )
 }

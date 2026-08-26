@@ -2,24 +2,30 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { api, ApiError, type DemoPersonaGroup, type DemoPersonaUser } from '../api/client'
 import DemoPicker from './DemoPicker'
+import { BrandCap, CapIcon, ChevronIcon, EyeIcon, LockIcon, PersonIcon } from '../components/icons'
 
 export default function LoginScreen() {
   const { login, loginAsDemo } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Demo mode is discovered rather than configured in this app: the API
   // answers /demo/personas only when DEMO_MODE is on, and lists only schools
-  // a SYSTEM_OWNER has switched on. An empty or failed answer means the demo
-  // section simply isn't rendered, leaving an ordinary login form.
-  // null means demo mode is off (the API 404s), which is different from
-  // demo mode being on with nothing seeded — that shows a "load demo data"
-  // prompt rather than silently rendering nothing.
-  const [demo, setDemo] = useState<{ demoMode: boolean; groups: DemoPersonaGroup[] } | null>(null)
+  // a SYSTEM_OWNER has switched on.
+  const [demo, setDemo] = useState<{
+    demoMode: boolean
+    seeded: boolean
+    groups: DemoPersonaGroup[]
+  } | null>(null)
   const [demoNonce, setDemoNonce] = useState(0)
   const [busyEmail, setBusyEmail] = useState<string | null>(null)
+  // Local only: collapses the demo section for a plain sign-in. It cannot
+  // switch demo mode ON — that is a per-school setting a system owner
+  // controls, and the server is the authority on it.
+  const [demoExpanded, setDemoExpanded] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -58,53 +64,104 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="login-page">
-      <div className={`login-card${demo?.demoMode ? ' with-demo' : ''}`}>
-        <form onSubmit={onSubmit}>
-          <div className="mark">◈</div>
-          <h1>DigiScript Back Office</h1>
-          <p className="sub">Sign in to the administration portal.</p>
+    <div className="auth-page">
+      <header className="auth-header">
+        <div className="auth-brand">
+          <BrandCap />
+          <h1>DigiScript</h1>
+        </div>
+        <p>
+          Back Office <span aria-hidden="true">|</span> Smarter Administration
+        </p>
+      </header>
+
+      <main className="auth-body">
+        <section className="welcome-card">
+          <h2>Welcome Back</h2>
+          <p>Sign in to your DigiScript Back Office</p>
 
           {error && <div className="error-banner">{error}</div>}
 
-          <div className="field">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
+          <form onSubmit={onSubmit} className="auth-form">
+            <div className="input-shell">
+              <span className="input-icon">
+                <PersonIcon />
+              </span>
+              <input
+                id="email"
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Username / Email"
+                aria-label="Username or email"
+              />
+            </div>
 
-          <div className="field">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+            <div className="input-shell">
+              <span className="input-icon">
+                <LockIcon />
+              </span>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                aria-label="Password"
+              />
+              <button
+                type="button"
+                className="input-affix"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                <EyeIcon off={showPassword} />
+              </button>
+            </div>
 
-          <button type="submit" className="primary" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            <button type="submit" className="btn-login" disabled={submitting}>
+              {submitting ? 'Signing in…' : 'Login'}
+              {!submitting && <ChevronIcon />}
+            </button>
+          </form>
+        </section>
 
         {demo?.demoMode && (
-          <DemoPicker
-            groups={demo.groups}
-            onPick={signInAs}
-            onSeeded={() => setDemoNonce((n) => n + 1)}
-            busyEmail={busyEmail}
-          />
+          <>
+            <div className="demo-banner">
+              <span className="demo-banner-icon">
+                <CapIcon />
+              </span>
+              <span className="demo-banner-text">
+                <strong>Demo Mode</strong>
+                <small>Run a live demo using sample accounts</small>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={demoExpanded}
+                aria-label="Show demo accounts"
+                className="switch"
+                onClick={() => setDemoExpanded((v) => !v)}
+              />
+            </div>
+
+            {demoExpanded && (
+              <DemoPicker
+                groups={demo.groups}
+                seeded={demo.seeded}
+                onPick={signInAs}
+                onSeeded={() => setDemoNonce((n) => n + 1)}
+                busyEmail={busyEmail}
+              />
+            )}
+          </>
         )}
-      </div>
+      </main>
     </div>
   )
 }
