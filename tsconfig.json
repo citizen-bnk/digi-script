@@ -11,6 +11,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    // config/resolve-database-url.mjs is deliberately plain JavaScript, so the
+    // deploy's postinstall hook can import it under a bare `node`.
+    "allowJs": true,
     "declaration": false,
     "sourceMap": true,
     "noUnusedLocals": true,

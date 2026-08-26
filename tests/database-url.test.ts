@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveDatabaseUrl, resolveMigrationDatabaseUrl } from "../src/config/database-url.js";
+import { execFileSync } from "node:child_process";
+import { resolveDatabaseUrl, resolveMigrationDatabaseUrl } from "../src/config/resolve-database-url.mjs";
 
 /**
  * Vercel's Postgres integration never sets `DATABASE_URL` — it sets
@@ -70,5 +71,30 @@ describe("database url resolution", () => {
       process.env.POSTGRES_PRISMA_URL = "postgresql://pooled";
       expect(resolveMigrationDatabaseUrl()).toBe("postgresql://pooled");
     });
+  });
+});
+
+/**
+ * The deploy's postinstall hook runs the migration script under whatever
+ * `node` the platform provides — no compile step, no loader. Importing
+ * TypeScript from there only works on versions new enough to strip types,
+ * and fails the entire install on the ones that are not. Running with
+ * stripping switched off stands in for that older Node.
+ */
+describe("the migration script under a bare node", () => {
+  it("runs without TypeScript type stripping", () => {
+    const output = execFileSync(
+      process.execPath,
+      ["--no-experimental-strip-types", "scripts/deploy-migrate.mjs"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: Object.fromEntries(
+          Object.entries(process.env).filter(([key]) => !MANAGED_KEYS.includes(key)),
+        ) as NodeJS.ProcessEnv,
+      },
+    );
+
+    expect(output).toContain("No database configured");
   });
 });

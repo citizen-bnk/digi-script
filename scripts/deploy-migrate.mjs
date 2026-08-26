@@ -14,7 +14,7 @@
  *     only move the failure to the first request.
  */
 import { spawnSync } from 'node:child_process'
-import { resolveMigrationDatabaseUrl } from '../src/config/database-url.ts'
+import { resolveMigrationDatabaseUrl } from '../src/config/resolve-database-url.mjs'
 
 const databaseUrl = resolveMigrationDatabaseUrl()
 
