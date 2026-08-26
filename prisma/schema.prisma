@@ -1,0 +1,379 @@
+// DigiScript core system data model.
+// Maps directly to the roles, workflows, and entities described in:
+//   - DigiScript PRD v1.0
+//   - DigiScript Complete Application Specification v1.0
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy: District (System Owner scope) -> School (Super User scope)
+// ---------------------------------------------------------------------------
+
+model District {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schools   School[]
+  users     User[]
+  auditLogs AuditLog[]
+
+  @@map("districts")
+}
+
+model School {
+  id             String   @id @default(uuid())
+  districtId     String?
+  name           String
+  address        String?
+  phone          String?
+  principalName  String?
+  retentionYears Int      @default(3)
+  // Per-school demo switch, toggled by a SYSTEM_OWNER from the back office.
+  // The DEMO_MODE env var is the deployment-level master switch; this says
+  // which schools take part once demo mode is available at all.
+  demoModeEnabled Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  district      District?      @relation(fields: [districtId], references: [id])
+  users         User[]
+  students      Student[]
+  documents     Document[]
+  escalations   Escalation[]
+  conversations Conversation[]
+  auditLogs     AuditLog[]
+  budgets       Budget[]
+
+  @@index([districtId])
+  @@map("schools")
+}
+
+// ---------------------------------------------------------------------------
+// Users & roles (PRD 2. User Personas & Roles / 4.2 User & Role Management)
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SYSTEM_OWNER // Kari Group: cross-district financial + compliance oversight
+  SUPER_USER // School principal / administrator: full school access
+  SUPERVISOR // Teacher/supervisor with escalation + nurse/health access
+  TEACHER // Read-only class access, no escalation/financial access
+  PARENT // Own-child-only access
+  SUPPORT // Escalation queue + audit log access, no document management
+  // Login + read-only access to their own Student record only (see
+  // User.studentId). No courses/assignments/grades — deliberately scoped
+  // narrow; see docs/design/mobile-app-screens-catalog.md for the fuller
+  // student app shown in the design deck, deferred for now.
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id                String     @id @default(uuid())
+  districtId        String?
+  schoolId          String?
+  role              Role
+  name              String
+  email             String     @unique
+  phone             String?
+  passwordHash      String
+  status            UserStatus @default(ACTIVE)
+  mfaEnabled        Boolean    @default(false)
+  // PRD 4.8: "Teachers can access student records for their classes" — scopes
+  // a TEACHER/SUPERVISOR to one class. Null means unscoped (e.g. SUPER_USER).
+  assignedClassName String?
+  // Set only for role STUDENT: the one Student record this login may view.
+  // Unique because a student login maps to exactly one student, unlike
+  // ParentStudentLink which is many-to-many for parents.
+  studentId         String?    @unique
+  lastLoginAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  district District? @relation(fields: [districtId], references: [id])
+  school   School?   @relation(fields: [schoolId], references: [id])
+  student  Student?  @relation("StudentSelfUser", fields: [studentId], references: [id])
+
+  uploadedDocuments     Document[]          @relation("DocumentUploadedBy")
+  assignedEscalations   Escalation[]        @relation("EscalationAssignee")
+  parentLinks           ParentStudentLink[]
+  sentMessages          Message[]
+  auditLogs             AuditLog[]
+  conversationsAsParent Conversation[]      @relation("ConversationParent")
+
+  @@index([schoolId])
+  @@index([districtId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Students (Supervisor & Nurse Module / Parent Portal)
+// ---------------------------------------------------------------------------
+
+model Student {
+  id                String    @id @default(uuid())
+  schoolId          String
+  name              String
+  grade             String?
+  className         String?
+  dateOfBirth       DateTime?
+  emergencyContacts Json?
+  medicalNotes      Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  school        School              @relation(fields: [schoolId], references: [id])
+  parentLinks   ParentStudentLink[]
+  documents     Document[]
+  escalations   Escalation[]
+  conversations Conversation[]
+  selfUser      User?               @relation("StudentSelfUser")
+
+  @@index([schoolId])
+  @@map("students")
+}
+
+enum ParentRelationship {
+  MOTHER
+  FATHER
+  GUARDIAN
+  OTHER
+}
+
+model ParentStudentLink {
+  id           String             @id @default(uuid())
+  parentUserId String
+  studentId    String
+  relationship ParentRelationship @default(GUARDIAN)
+  createdAt    DateTime           @default(now())
+
+  parent  User    @relation(fields: [parentUserId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([parentUserId, studentId])
+  @@index([studentId])
+  @@map("parent_student_links")
+}
+
+// ---------------------------------------------------------------------------
+// Documents & AI categorization (PRD 4.3 / 4.4 / 4.5)
+// ---------------------------------------------------------------------------
+
+enum DocumentStatus {
+  PENDING_REVIEW
+  CATEGORIZED
+  ESCALATED
+  ARCHIVED
+}
+
+enum Sensitivity {
+  NORMAL
+  SENSITIVE
+}
+
+model DocumentCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  documents Document[]
+
+  @@map("document_categories")
+}
+
+model Document {
+  id                 String         @id @default(uuid())
+  schoolId           String
+  uploadedByUserId   String
+  studentId          String?
+  categoryId         String?
+  originalFilename   String
+  storageKey         String
+  mimeType           String
+  sizeBytes          Int
+  status             DocumentStatus @default(PENDING_REVIEW)
+  categoryConfidence Float?
+  // Short human-readable reasons behind the suggested category (the "why we
+  // think this" list on the AI Categorization screen), e.g. ["Contains
+  // attendance-related keywords", "Matches 12 similar documents"].
+  categoryReasons    Json?
+  sensitivity        Sensitivity    @default(NORMAL)
+  academicYear       String?
+  term               String?
+  folderPath         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  school     School            @relation(fields: [schoolId], references: [id])
+  uploadedBy User              @relation("DocumentUploadedBy", fields: [uploadedByUserId], references: [id])
+  student    Student?          @relation(fields: [studentId], references: [id])
+  category   DocumentCategory? @relation(fields: [categoryId], references: [id])
+  escalation Escalation?
+
+  @@index([schoolId, status])
+  @@index([studentId])
+  @@map("documents")
+}
+
+// ---------------------------------------------------------------------------
+// Escalations (PRD Use Case 3 / Application Spec: Supervisor & Nurse Module)
+// ---------------------------------------------------------------------------
+
+enum EscalationStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum EscalationReasonType {
+  LOW_CONFIDENCE_CATEGORIZATION
+  PARENT_QUERY_UNRESOLVED
+  SENSITIVE_DATA_REVIEW
+  MANUAL_REQUEST
+}
+
+model Escalation {
+  id               String               @id @default(uuid())
+  schoolId         String
+  documentId       String?              @unique
+  conversationId   String?
+  studentId        String?
+  assignedToUserId String?
+  reasonType       EscalationReasonType
+  reason           String
+  aiConfidence     Float?
+  status           EscalationStatus     @default(NEW)
+  resolutionNotes  String?
+  createdAt        DateTime             @default(now())
+  resolvedAt       DateTime?
+
+  school       School        @relation(fields: [schoolId], references: [id])
+  document     Document?     @relation(fields: [documentId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  student      Student?      @relation(fields: [studentId], references: [id])
+  assignedTo   User?         @relation("EscalationAssignee", fields: [assignedToUserId], references: [id])
+
+  @@index([schoolId, status])
+  @@map("escalations")
+}
+
+// ---------------------------------------------------------------------------
+// Conversations & messages (PRD 4.7 Chat & Query Interface)
+// ---------------------------------------------------------------------------
+
+enum ConversationChannel {
+  WEB
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
+enum ConversationStatus {
+  OPEN
+  ESCALATED
+  RESOLVED
+}
+
+model Conversation {
+  id           String              @id @default(uuid())
+  schoolId     String
+  parentUserId String
+  studentId    String?
+  channel      ConversationChannel @default(WEB)
+  status       ConversationStatus  @default(OPEN)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  school      School       @relation(fields: [schoolId], references: [id])
+  parent      User         @relation("ConversationParent", fields: [parentUserId], references: [id])
+  student     Student?     @relation(fields: [studentId], references: [id])
+  messages    Message[]
+  escalations Escalation[]
+
+  @@index([schoolId, status])
+  @@map("conversations")
+}
+
+enum SenderType {
+  PARENT
+  AI
+  STAFF
+}
+
+model Message {
+  id             String     @id @default(uuid())
+  conversationId String
+  senderType     SenderType
+  senderUserId   String?
+  body           String
+  confidence     Float?
+  // Staff-only note attached to a conversation (the "Add Note (internal)"
+  // field on the Respond to Parent screen) — never shown to the parent.
+  isInternal     Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  senderUser   User?        @relation(fields: [senderUserId], references: [id])
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// ---------------------------------------------------------------------------
+// Budgets (Application Spec 4/5: Financial Consolidation, Budget Tracking)
+// Minimal shape for MVP core; full financial reporting is a later phase.
+// ---------------------------------------------------------------------------
+
+model Budget {
+  id             String   @id @default(uuid())
+  schoolId       String
+  costCenter     String
+  term           String
+  amountBudgeted Decimal  @db.Decimal(14, 2)
+  amountSpent    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, costCenter, term])
+  @@map("budgets")
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail (PRD 4.10) — append-only, never updated or deleted by app code.
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  districtId  String?
+  schoolId    String?
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  district District? @relation(fields: [districtId], references: [id])
+  school   School?   @relation(fields: [schoolId], references: [id])
+  actor    User?     @relation(fields: [actorUserId], references: [id])
+
+  @@index([schoolId, createdAt])
+  @@index([districtId, createdAt])
+  @@map("audit_logs")
+}

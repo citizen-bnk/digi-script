@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "builds": [
+    {
+      "src": "web/mobile-app/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    },
+    {
+      "src": "web/back-office/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ],
+  "routes": [
+    { "src": "/admin", "dest": "/web/back-office/index.html" },
+    { "src": "/admin/(.*)", "dest": "/web/back-office/$1" },
+    {
+      "src": "/sw.js",
+      "dest": "/web/mobile-app/sw.js",
+      "headers": { "cache-control": "public, max-age=0, must-revalidate" }
+    },
+    { "src": "/(.*)", "dest": "/web/mobile-app/$1" },
+    { "handle": "filesystem" },
+    { "src": "/web/back-office/(.*)", "dest": "/web/back-office/index.html" },
+    { "src": "/(.*)", "dest": "/web/mobile-app/index.html" }
+  ]
+}

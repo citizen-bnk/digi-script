@@ -1,0 +1,51 @@
+# Render Blueprint — provisions the API and its Postgres database together.
+# Render reads this on "New > Blueprint"; see the root README's
+# "Deploying the backend" for the walkthrough and the free-tier caveats.
+
+databases:
+  - name: digiscript-db
+    databaseName: digiscript
+    user: digiscript
+    plan: free
+
+services:
+  - type: web
+    name: digiscript-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+
+    # Uploaded documents are written to local disk (see
+    # src/services/storage/storage.service.ts). On the free plan there is no
+    # persistent volume, so they are lost on every redeploy and restart. To
+    # keep them, move the service to a paid plan and uncomment this:
+    #
+    # disk:
+    #   name: documents
+    #   mountPath: /app/.data
+    #   sizeGB: 1
+    #
+    # The durable answer is S3 rather than a volume — swap in an
+    # S3StorageService behind the existing StorageService interface.
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: digiscript-db
+          property: connectionString
+      # Generated once by Render and held thereafter. Changing it invalidates
+      # every issued token, logging all users out.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LOCAL_STORAGE_DIR
+        value: /app/.data/documents
+      # Set this to the deployed frontend's origin, e.g.
+      # https://digi-script-8bku.vercel.app — sync: false means Render prompts
+      # for it rather than storing it in this file.
+      - key: CORS_ORIGIN
+        sync: false
