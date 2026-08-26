@@ -1,4 +1,7 @@
 import "dotenv/config";
+// Side effect: resolves DATABASE_URL from Vercel's POSTGRES_* variables
+// before anything reads it. Must come before the schema is parsed.
+import "./database-url.js";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -34,11 +37,28 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/**
+ * Thrown when required configuration is missing, carrying the field names so
+ * the serverless entrypoint can answer with something better than an opaque
+ * 500 — on a platform where the only symptom is a failed invocation, "which
+ * variable" is the entire diagnosis.
+ */
+export class EnvConfigError extends Error {
+  readonly fields: Record<string, string[] | undefined>;
+
+  constructor(fields: Record<string, string[] | undefined>) {
+    super(`Invalid environment configuration: ${Object.keys(fields).join(", ")}`);
+    this.name = "EnvConfigError";
+    this.fields = fields;
+  }
+}
+
 function loadEnv(): Env {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
-    throw new Error("Invalid environment configuration");
+    const fields = parsed.error.flatten().fieldErrors;
+    console.error("Invalid environment configuration:", fields);
+    throw new EnvConfigError(fields);
   }
   return parsed.data;
 }

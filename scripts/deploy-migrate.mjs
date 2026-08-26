@@ -14,14 +14,23 @@
  *     only move the failure to the first request.
  */
 import { spawnSync } from 'node:child_process'
+import { resolveMigrationDatabaseUrl } from '../src/config/database-url.ts'
 
-if (!process.env.DATABASE_URL) {
-  console.log('[migrate] No DATABASE_URL — skipping migrations.')
+const databaseUrl = resolveMigrationDatabaseUrl()
+
+if (!databaseUrl) {
+  console.log('[migrate] No database configured — skipping migrations.')
   process.exit(0)
 }
 
 console.log('[migrate] Applying migrations…')
-const result = spawnSync('npx', ['prisma', 'migrate', 'deploy'], { stdio: 'inherit' })
+const result = spawnSync('npx', ['prisma', 'migrate', 'deploy'], {
+  stdio: 'inherit',
+  // Prisma reads DATABASE_URL directly; point it at the unpooled connection,
+  // since pgbouncer in transaction mode cannot hold the advisory locks a
+  // migration takes.
+  env: { ...process.env, DATABASE_URL: databaseUrl },
+})
 
 if (result.status !== 0) {
   console.error('[migrate] Migrations failed. Refusing to ship a deploy that cannot reach its schema.')

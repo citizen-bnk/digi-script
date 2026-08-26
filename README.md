@@ -300,11 +300,15 @@ frontends are built with `VITE_API_URL=/api` so they call their own host.
 ### First-time setup
 
 1. **Attach a Postgres.** In the Vercel project, Storage → create a
-   Postgres (Neon) database. Vercel sets `DATABASE_URL` for you. It must be
-   a **pooled** connection string (Neon's `-pooler` host) — a serverless
-   function opens a connection per invocation and a direct URL runs out.
+   Postgres (Neon) database. Nothing else to configure: Vercel sets
+   `POSTGRES_PRISMA_URL` and friends rather than `DATABASE_URL`, and
+   `src/config/database-url.ts` resolves those — pooled for the running app,
+   unpooled for migrations, since pgbouncer in transaction mode cannot hold
+   the locks a migration takes.
 2. **Set `JWT_SECRET`** in Settings → Environment Variables, to any string
-   of 16+ characters. Changing it later logs everyone out.
+   of 16+ characters. Changing it later logs everyone out. This is the one
+   value that has no sensible default; without it the API answers every
+   request with `503` and names the missing variable.
 3. **Redeploy.** Migrations run during the deploy's install step via
    `scripts/deploy-migrate.mjs`, which skips quietly when no
    `DATABASE_URL` is set and fails the build loudly when one is set but
