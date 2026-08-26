@@ -8,6 +8,10 @@ import { asyncHandler } from "../../utils/async-handler.js";
 import { validateBody } from "../../middleware/validate.js";
 import { signToken, toAuthenticatedUser } from "../../middleware/auth.js";
 import { loginWithPassword, toPublicUser } from "../auth/auth.service.js";
+import { seedDemoData } from "./demo.seed.js";
+import jwt from "jsonwebtoken";
+import type { Request } from "express";
+import type { AuthenticatedUser } from "../../types/auth.js";
 import {
   BACK_OFFICE_ROLES,
   DEMO_PASSWORD,
@@ -20,6 +24,21 @@ import {
 } from "./demo.personas.js";
 
 export const demoRouter = Router();
+
+/**
+ * Reads the bearer token if one is present, without demanding it. The seed
+ * route needs "who is this, if anyone" rather than requireAuth's "there must
+ * be somebody", since the first seed of an empty database has no caller.
+ */
+async function authenticatedUserOrNull(req: Request): Promise<AuthenticatedUser | null> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return null;
+  try {
+    return jwt.verify(header.slice("Bearer ".length), env.JWT_SECRET) as AuthenticatedUser;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Every route here is refused unless DEMO_MODE is explicitly on. They are
@@ -64,6 +83,35 @@ demoRouter.get(
           : [...BACK_OFFICE_ROLES, ...MOBILE_APP_ROLES];
 
     res.json({ demoMode: true, groups: personasForRoles(roles, await enabledSchoolKeys()) });
+  }),
+);
+
+/**
+ * Loads (or reloads) the demo district. This exists so a deployment can be
+ * populated without local tooling — a serverless demo has no shell to run
+ * `npm run seed` from.
+ *
+ * It is destructive: it clears prior data and starts over. So it is open
+ * only while the database is empty, which is a state nobody can lose
+ * anything from. Once there are users, re-seeding requires a SYSTEM_OWNER
+ * token — the same person who controls demo mode per school.
+ */
+demoRouter.post(
+  "/seed",
+  asyncHandler(async (req, res) => {
+    const existingUsers = await prisma.user.count();
+
+    if (existingUsers > 0) {
+      const user = await authenticatedUserOrNull(req);
+      if (user?.role !== Role.SYSTEM_OWNER) {
+        throw AppError.forbidden(
+          "This database already has data. Re-seeding requires a SYSTEM_OWNER token.",
+        );
+      }
+    }
+
+    const summary = await seedDemoData();
+    res.json({ seeded: true, summary });
   }),
 );
 

@@ -20,7 +20,11 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
-  LOCAL_STORAGE_DIR: z.string().default(".data/documents"),
+  // Only /tmp is writable on a serverless function, and it is wiped between
+  // cold starts. That is survivable here because nothing ever reads a
+  // document's bytes back — no endpoint serves files. Real durability means
+  // swapping in an S3-backed StorageService.
+  LOCAL_STORAGE_DIR: z.string().default(process.env.VERCEL ? "/tmp/digiscript-documents" : ".data/documents"),
   AI_CATEGORIZATION_HIGH_CONFIDENCE: z.coerce.number().default(0.85),
   AI_CATEGORIZATION_LOW_CONFIDENCE: z.coerce.number().default(0.7),
   // PRD 4.7: below this, the AI's chat answer is treated as unresolved and

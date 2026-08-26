@@ -98,7 +98,9 @@ A **System Owner** switches demo mode per school from the Multi-School
 screen's "Demo logins" column. A school that is off contributes no demo
 accounts to either app. See the root README's "Running a demo".
 
-Point at a different API with `VITE_API_URL` in `.env.local`:
+On the Vercel deployment this app is served at `/admin` and the API from
+the same origin at `/api`, both set by its `vercel-build` script. For local
+work, point at a different API with `VITE_API_URL` in `.env.local`:
 
 ```
 VITE_API_URL=http://localhost:4000
