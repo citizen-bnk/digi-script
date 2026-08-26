@@ -60,13 +60,37 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError(0, `Can't reach the DigiScript API at ${API_URL}.`)
   }
 
-  const isJson = res.headers.get('content-type')?.includes('application/json')
+  const contentType = res.headers.get('content-type') ?? ''
+  const isJson = contentType.includes('application/json')
   const body = isJson ? await res.json() : undefined
 
   if (!res.ok) {
-    throw new ApiError(res.status, body?.error ?? `Request failed with status ${res.status}`)
+    throw new ApiError(res.status, body?.error ?? describeNonJson(res, contentType))
   }
+
+  // A 2xx that is not JSON is not a success we can use. This happens when
+  // something answers on the API's behalf — an access-protection wall, a
+  // proxy error page, or a rewrite that fell through to the SPA shell — and
+  // returning `undefined` here made that indistinguishable from an empty
+  // result, so callers rendered nothing and reported no error.
+  if (!isJson) {
+    throw new ApiError(res.status, describeNonJson(res, contentType))
+  }
+
   return body as T
+}
+
+/**
+ * Names the likely cause when the API answers with something other than
+ * JSON. The HTML case is worth calling out by name: a login or access wall
+ * in front of the deployment intercepts every request, and its page looks
+ * nothing like an API failure until you read the content type.
+ */
+function describeNonJson(res: Response, contentType: string): string {
+  if (contentType.includes('text/html')) {
+    return `The API returned a web page instead of data (HTTP ${res.status}). Something is answering in front of it — most often deployment access protection, which has to be turned off or bypassed for ${API_URL} to be reachable.`
+  }
+  return `The API returned ${contentType || 'an unknown content type'} instead of data (HTTP ${res.status}).`
 }
 
 export interface AuthUser {
