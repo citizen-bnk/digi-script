@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Role } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { prisma } from "../../db/prisma.js";
+import { logger } from "../../utils/logger.js";
 import { AppError } from "../../utils/app-error.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 import { validateBody } from "../../middleware/validate.js";
@@ -142,10 +143,37 @@ demoRouter.post(
       }
     }
 
-    const summary = await seedDemoData();
-    res.json({ seeded: true, summary });
+    try {
+      const summary = await seedDemoData();
+      res.json({ seeded: true, summary });
+    } catch (error) {
+      // The generic 500 handler hides the reason in a function log, which on
+      // a hosted deployment means the one person who needs it cannot see it.
+      // Seeding runs only in demo mode, against data nobody owns, so the
+      // failure itself is safe to return — with the connection string
+      // scrubbed, since Prisma puts it in some messages verbatim.
+      const detail = error as { code?: string; name?: string; message?: string } | null;
+      logger.error({ err: error }, "Demo seed failed");
+
+      res.status(500).json({
+        error: "Loading the demo data failed part-way through.",
+        reason: redactConnectionStrings(detail?.message ?? String(error)),
+        code: detail?.code ?? detail?.name ?? null,
+      });
+    }
   }),
 );
+
+/**
+ * Prisma includes the datasource URL in several of its error messages, and
+ * that URL carries the database password. Anything sent to a browser has to
+ * have it removed first.
+ */
+function redactConnectionStrings(message: string): string {
+  return message
+    .replace(/\b[a-z]+(?:ql)?:\/\/[^\s"']+/gi, "[connection string removed]")
+    .slice(0, 600);
+}
 
 const demoLoginSchema = z.object({ email: z.string().email() });
 

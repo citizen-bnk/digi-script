@@ -60,7 +60,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const body = isJson ? await res.json() : undefined
 
   if (!res.ok) {
-    throw new ApiError(res.status, body?.error ?? describeNonJson(res, contentType))
+    // Some endpoints send a `reason` alongside `error`: the short sentence is
+    // for the screen, the reason is what makes the failure actionable. Losing
+    // it left "Internal server error" as the whole of what a user could see.
+    const message = body?.error ?? describeNonJson(res, contentType)
+    throw new ApiError(res.status, body?.reason ? `${message} ${body.reason}` : message)
   }
 
   // A 2xx that is not JSON is not a success we can use. This happens when
