@@ -70,6 +70,10 @@ export async function ingestDocument(input: IngestDocumentInput) {
       term: input.term,
       folderPath: buildFolderPath({ academicYear: input.academicYear, term: input.term, category }),
     },
+    // Matches what listDocuments and getDocument return. Without it the
+    // caller receives a categoryId and no name, and an upload screen has
+    // nothing to show for the suggestion it is asking the user to confirm.
+    include: { category: true },
   });
 
   await recordAuditEntry({

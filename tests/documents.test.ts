@@ -25,6 +25,13 @@ describe("document ingestion, RBAC, escalation, and audit", () => {
     expect(res.body.document.status).toBe("CATEGORIZED");
     expect(res.body.document.folderPath).toBe("2026/Term 3/Attendance Register");
 
+    // The upload response must carry the resolved category, not just its id:
+    // an upload screen asks the user to confirm the AI's suggestion, so it
+    // needs the name. Returning only categoryId once made both frontends
+    // display a fallback label instead of the real suggestion.
+    expect(res.body.document.category).toBeTruthy();
+    expect(res.body.document.category.name).toBe("Attendance Register");
+
     const escalations = await request(app)
       .get(`/escalations?schoolId=${schoolId}`)
       .set("Authorization", `Bearer ${principalToken}`);

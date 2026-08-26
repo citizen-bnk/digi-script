@@ -40,8 +40,17 @@ All four non-back-office roles of System A now have a working frontend:
 `vite-plugin-pwa`) covering Parent (chat, My Child, Notifications),
 Teacher (class roster, read-only documents), Supervisor (escalations,
 document upload + AI categorization, staff replies), and a narrow Student
-self-view, all wired to the real backend below. All of System B (the web
-back-office for System Owner/Super User/Support) remains unbuilt.
+self-view, all wired to the real backend below.
+
+System B, the web back-office, now has a first build too:
+[`web/back-office`](./web/back-office) — a desktop portal (React + Vite,
+no PWA) covering System Owner (multi-school overview, district audit),
+Super User (school dashboard, document library with upload and AI
+categorization, user management, student records, escalations, audit),
+and Support (escalations and audit only). The modules with no data model
+behind them — budgets, financial consolidation, government reports,
+knowledge base, exports — are left out rather than mocked, and its README
+lists them.
 
 ## Architecture
 
@@ -158,11 +167,17 @@ phases in the PRD):
 - Semantic search / vector embeddings (PRD 4.6) — `QueryService` currently
   matches by keyword against a student's own categorized documents, not a
   real knowledge-base index
-- All of System B (the web back-office for System Owner/Super
-  User/Support) — [`web/mobile-app`](./web/mobile-app) covers System A
-  (Parent/Teacher/Supervisor/Student) only. Native (non-PWA) apps aren't
-  planned; see `docs/design/mobile-app-screens-catalog.md` and
-  **Product decisions** above for which visual system each app follows.
+- The System B modules with no data model behind them — budget tracking
+  and approvals, financial consolidation, government compliance reports,
+  the knowledge-base index, Reports &amp; Analytics, settings/branding and
+  integrations, bulk CSV import, password-reset email, and PDF/Excel
+  export. [`web/back-office`](./web/back-office) covers the rest; its
+  README enumerates each gap. Native (non-PWA) apps aren't planned; see
+  `docs/design/mobile-app-screens-catalog.md` and **Product decisions**
+  above for which visual system each app follows.
+- Serving document files back over HTTP — the backend records a storage
+  key but has no endpoint that returns the bytes, so neither frontend
+  offers preview or download.
 - Multi-school financial consolidation and government report generation
   (the `Budget` model exists as a minimal seed for this, not the full
   reporting engine described in `mvp-use-cases.md`) — deferred by decision
@@ -349,4 +364,7 @@ docs/design/                screenshot-derived UI reference (see the
 web/mobile-app/              System A: Parent/Teacher/Supervisor/Student —
                              installable PWA (React + Vite), see its own
                              README for how to run it and test installability
+web/back-office/             System B: System Owner/Super User/Support —
+                             desktop admin portal (React + Vite), see its
+                             own README for what's built and what's deferred
 ```

@@ -53,7 +53,7 @@ export function UploadDocumentScreen() {
         <h1 style={{ fontSize: 20, margin: '4px 0 16px' }}>AI Categorization</h1>
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, color: 'var(--neutral-600)', marginBottom: 4 }}>Suggested category</div>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{result.category?.name ?? 'Other'}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{result.category?.name ?? '—'}</div>
           <span
             style={{
               display: 'inline-block',
