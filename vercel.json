@@ -17,7 +17,7 @@
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index" },
+    { "src": "/api/(.*)", "dest": "/api/index.ts" },
     { "src": "/admin", "dest": "/web/back-office/index.html" },
     { "src": "/admin/(.*)", "dest": "/web/back-office/$1" },
     {

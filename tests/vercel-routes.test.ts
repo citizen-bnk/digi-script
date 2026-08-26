@@ -17,10 +17,19 @@ const config = JSON.parse(readFileSync(path.join(process.cwd(), "vercel.json"), 
   routes: Array<{ src?: string; dest?: string; handle?: string }>;
 };
 
-/** @vercel/node publishes a function at its entrypoint path minus the extension. */
+/**
+ * With legacy `builds`, a route's dest names the build entrypoint itself —
+ * extension and all — which is the form Vercel's own examples use.
+ *
+ * This file previously stripped the extension, on the reasoning that the
+ * published function drops it. Vercel then answered /api/* with a plain-text
+ * 404: nothing exists at the stripped path. The test agreed with the config
+ * because both encoded the same wrong assumption, which is the trap — so it
+ * now derives the expected dest from the build list rather than restating it.
+ */
 const lambdaPaths = config.builds
   .filter((build) => build.use === "@vercel/node")
-  .map((build) => `/${build.src.replace(/\.[^.]+$/, "")}`);
+  .map((build) => `/${build.src}`);
 
 const staticMounts = config.builds
   .filter((build) => build.use === "@vercel/static-build")
@@ -85,7 +94,7 @@ describe("vercel.json routing", () => {
       expect(
         resolveRoute(requestPath, semantics),
         `${requestPath} must reach the API under ${semantics} semantics`,
-      ).toBe("/api/index");
+      ).toBe("/api/index.ts");
     }
   });
 
@@ -94,20 +103,38 @@ describe("vercel.json routing", () => {
     // matched again by a bare /(.*) and rewritten into the static tree.
     for (const route of config.routes) {
       if (!route.src || !route.dest?.includes("mobile-app")) continue;
-      expect(
-        new RegExp(`^${route.src}$`).test("/api/index"),
-        `${route.src} must not match an API path`,
-      ).toBe(false);
-      expect(new RegExp(`^${route.src}$`).test("/api/health")).toBe(false);
+      for (const apiPath of ["/api", "/api/index", "/api/index.ts", "/api/health"]) {
+        expect(
+          new RegExp(`^${route.src}$`).test(apiPath),
+          `${route.src} must not match ${apiPath}`,
+        ).toBe(false);
+      }
     }
   });
 
-  it("names a dest the builds actually publish", () => {
-    // The original bug in one line: dest pointed at "/api/index.ts", which no
-    // build ever emits, so the route quietly did nothing.
+  it("points at a build entrypoint that exists", () => {
+    // A dest naming nothing in the deployment is answered by Vercel with a
+    // plain-text 404 — not by our app, whose own 404 is JSON. That content
+    // type is how the two are told apart from the outside.
     const apiRoute = config.routes.find((route) => route.src === "/api/(.*)");
     expect(apiRoute).toBeDefined();
     expect(lambdaPaths).toContain(apiRoute!.dest);
+    expect(apiRoute!.dest).toBe("/api/index.ts");
+  });
+
+  it("keeps every dest tied to a declared build", () => {
+    // Nothing may point at a path no build produces, whichever build made it.
+    const staticRoots = config.builds
+      .filter((build) => build.use === "@vercel/static-build")
+      .map((build) => `/${path.dirname(build.src)}`);
+
+    for (const route of config.routes) {
+      if (!route.dest) continue;
+      const known =
+        lambdaPaths.includes(route.dest) ||
+        staticRoots.some((root) => route.dest!.startsWith(`${root}/`));
+      expect(known, `${route.dest} is not produced by any build`).toBe(true);
+    }
   });
 
   it("serves the back office under /admin", () => {
