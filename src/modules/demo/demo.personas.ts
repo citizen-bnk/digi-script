@@ -218,19 +218,42 @@ export const DEMO_PERSONAS: DemoPersona[] = [
   },
 ];
 
-/** Groups personas by role, ordered for display, filtered to one app's roles. */
-export function personasForRoles(roles: Role[]) {
+/**
+ * Groups personas by role, ordered for display, filtered to one app's roles.
+ *
+ * Deliberately carries no password: the picker sends the email back to
+ * POST /demo/login and the server issues the token, so the demo credential
+ * never reaches the browser, the network tab, or the JS bundle.
+ */
+export function personasForRoles(roles: Role[], enabledSchoolKeys: Set<SchoolKey>) {
   return roles
     .map((role) => ({
       role,
       ...ROLE_PRESENTATION[role],
-      users: DEMO_PERSONAS.filter((persona) => persona.role === role).map((persona) => ({
+      users: DEMO_PERSONAS.filter(
+        (persona) => persona.role === role && isPersonaEnabled(persona, enabledSchoolKeys),
+      ).map((persona) => ({
         name: persona.name,
         email: persona.email,
-        password: DEMO_PASSWORD,
         subtitle: persona.subtitle,
       })),
     }))
     .filter((group) => group.users.length > 0)
     .sort((a, b) => a.order - b.order);
+}
+
+/**
+ * A persona is offered when its school has demo mode switched on. District
+ * personas belong to no school, so they follow the deployment-level
+ * DEMO_MODE switch alone — otherwise turning the last school off would hide
+ * the very account needed to turn one back on.
+ */
+export function isPersonaEnabled(persona: DemoPersona, enabledSchoolKeys: Set<SchoolKey>): boolean {
+  if (!persona.schoolKey) return true;
+  return enabledSchoolKeys.has(persona.schoolKey);
+}
+
+/** Looks up a persona by address; undefined for anything not listed here. */
+export function findDemoPersona(email: string): DemoPersona | undefined {
+  return DEMO_PERSONAS.find((persona) => persona.email.toLowerCase() === email.toLowerCase());
 }

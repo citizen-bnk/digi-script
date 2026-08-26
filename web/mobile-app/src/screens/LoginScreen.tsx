@@ -5,7 +5,7 @@ import { api, ApiError, type DemoPersonaGroup, type DemoPersonaUser } from '../a
 import { DemoPickerScreen } from './DemoPickerScreen'
 
 export function LoginScreen() {
-  const { login } = useAuth()
+  const { login, loginAsDemo } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,9 +15,7 @@ export function LoginScreen() {
   // Demo mode is discovered rather than configured in this app: the API
   // answers /demo/personas only when DEMO_MODE is on, and 404s otherwise.
   // That keeps the two from disagreeing about whether a demo is running.
-  const [demoGroups, setDemoGroups] = useState<DemoPersonaGroup[] | null>(null)
-  const [checkingDemo, setCheckingDemo] = useState(true)
-  const [showEmailForm, setShowEmailForm] = useState(false)
+  const [demoGroups, setDemoGroups] = useState<DemoPersonaGroup[]>([])
   const [busyEmail, setBusyEmail] = useState<string | null>(null)
 
   useEffect(() => {
@@ -25,8 +23,7 @@ export function LoginScreen() {
     api
       .demoPersonas('mobile')
       .then((res) => !cancelled && setDemoGroups(res.groups))
-      .catch(() => !cancelled && setDemoGroups(null))
-      .finally(() => !cancelled && setCheckingDemo(false))
+      .catch(() => !cancelled && setDemoGroups([]))
     return () => {
       cancelled = true
     }
@@ -36,7 +33,7 @@ export function LoginScreen() {
     setError(null)
     setBusyEmail(user.email)
     try {
-      await login(user.email, user.password)
+      await loginAsDemo(user.email)
       navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : `Could not sign in as ${user.name}.`)
@@ -59,24 +56,8 @@ export function LoginScreen() {
     }
   }
 
-  if (checkingDemo) {
-    return <div className="screen" />
-  }
-
-  if (demoGroups && demoGroups.length > 0 && !showEmailForm) {
-    return (
-      <DemoPickerScreen
-        groups={demoGroups}
-        onPick={signInAs}
-        onUseEmail={() => setShowEmailForm(true)}
-        busyEmail={busyEmail}
-        error={error}
-      />
-    )
-  }
-
   return (
-    <div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+    <div className="screen">
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <BubbleLogo size={72} />
         <h1 style={{ fontSize: 24, margin: '16px 0 4px' }}>DigiScript</h1>
@@ -118,13 +99,11 @@ export function LoginScreen() {
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign In'}
         </button>
-
-        {demoGroups && demoGroups.length > 0 && (
-          <button type="button" className="demo-link" onClick={() => setShowEmailForm(false)}>
-            ← Back to the demo role picker
-          </button>
-        )}
       </form>
+
+      {demoGroups.length > 0 && (
+        <DemoPickerScreen groups={demoGroups} onPick={signInAs} busyEmail={busyEmail} />
+      )}
     </div>
   )
 }

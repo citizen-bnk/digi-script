@@ -52,6 +52,26 @@ describe("back-office school overview", () => {
     expect(other.status).toBe(403);
   });
 
+  it("lets only a SYSTEM_OWNER switch a school's demo mode", async () => {
+    const { school, token } = await registerSchool({ principalEmail: "bo-demo@test.example" });
+
+    // A SUPER_USER runs the school but cannot decide whose accounts become
+    // one-click demo logins — that is a district call.
+    const asPrincipal = await request(app)
+      .patch(`/schools/${school.id}/demo-mode`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ enabled: true });
+    expect(asPrincipal.status).toBe(403);
+
+    await createUser(token, school.id, { role: "SUPPORT", email: "bo-demo-support@test.example" });
+    const support = await login("bo-demo-support@test.example", "Password123!");
+    const asSupport = await request(app)
+      .patch(`/schools/${school.id}/demo-mode`)
+      .set("Authorization", `Bearer ${support.token}`)
+      .send({ enabled: true });
+    expect(asSupport.status).toBe(403);
+  });
+
   it("keeps the back-office overview away from roles that belong to the mobile app", async () => {
     const { school, token } = await registerSchool({ principalEmail: "bo-roles@test.example" });
 

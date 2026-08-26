@@ -212,24 +212,50 @@ Start the API with demo mode on:
 DEMO_MODE=true npm run dev
 ```
 
-Both apps then replace their login form with a **role picker**: choose a
-role, then choose which of the two seeded people to be, and one click
-signs you in. Nothing is typed. Each app offers only the roles it serves —
-the mobile app shows Supervisor/Teacher/Parent/Learner, the back office
-shows District Office/Principal/Support Desk — so the picker can never
-land you on a "wrong app" screen. An "email address instead" link is
-always there as a fallback.
+Both apps then show their ordinary email/password form with a **demo
+section underneath it**: choose a role, choose which of the seeded people
+to be, and one click signs you in. The normal login keeps working
+throughout — the demo section is an addition, not a replacement. Each app
+offers only the roles it serves (the mobile app shows
+Supervisor/Teacher/Parent/Learner, the back office shows District
+Office/Principal/Support Desk), so the picker can never land you on a
+"wrong app" screen.
+
+### Two switches
+
+| Switch | Scope | Who controls it |
+| --- | --- | --- |
+| `DEMO_MODE` env var | The whole deployment | Whoever runs the server |
+| `School.demoModeEnabled` | One school | A **System Owner**, from the back office's Multi-School screen |
+
+`DEMO_MODE` decides whether demo mode exists at all; with it off, both apps
+show a plain login form and `/demo/*` returns 404. Once it is on, each
+school is switched on or off individually — a school that is off
+contributes no demo accounts to either picker, and its personas are refused
+by the sign-in endpoint even if someone calls it directly. District Office
+personas follow the env switch alone, since hiding them would remove the
+very account needed to turn a school back on.
+
+### No password is shown or sent
+
+The picker's buttons carry only the persona's email. `POST /demo/login`
+has the server run the ordinary password login with the demo credential it
+holds — so it is a real authentication, with the same status checks,
+`lastLoginAt` update and audit entry, and the credential never reaches the
+browser, the network tab, or the JS bundle. That endpoint refuses any
+address not in the persona list, so it cannot be aimed at a real account
+that happens to share the database.
 
 The apps discover demo mode rather than being configured for it: they call
-`GET /demo/personas`, which the API serves only when `DEMO_MODE=true` and
-404s otherwise. So the two can't disagree about whether a demo is running,
-and the picker can only ever offer accounts the seed actually created —
-both read the same list in `src/modules/demo/demo.personas.ts`.
+`GET /demo/personas`, and an empty or refused answer simply means the demo
+section isn't rendered. So the apps and API can't disagree about whether a
+demo is running, and the picker can only offer accounts the seed actually
+created — both read the same list in `src/modules/demo/demo.personas.ts`.
 
-> **`DEMO_MODE` hands out working logins and their passwords to anyone who
-> can reach the API.** It defaults to off, and the server logs a warning at
-> startup when it is on. Never enable it against a database holding real
-> learner data.
+> `DEMO_MODE` makes working logins available to anyone who can reach the
+> API — no password required. It defaults to off, and the server logs a
+> warning at startup when it is on. Never enable it against a database
+> holding real learner data.
 
 Everything in the demo is live, not staged: the seeded documents are
 pushed through the real categorization pipeline, so their confidence
@@ -238,8 +264,7 @@ during a demo works normally — send a parent message, upload and
 categorize a document, resolve an escalation — and it lands alongside the
 seeded data.
 
-All demo accounts use the password `Demo1234!`. `npm run seed` prints a
-summary of what it created.
+`npm run seed` prints a summary of what it created.
 
 ### Testing
 
@@ -328,13 +353,20 @@ anything real:
 ## Deploying the frontend to Vercel
 
 The root [`vercel.json`](./vercel.json) scopes a Vercel deployment to
-**`web/mobile-app` only** — Vercel's zero-config build otherwise tries to
+**the two frontends only** — Vercel's zero-config build otherwise tries to
 build this repo's root as a single app, which is the Express + Postgres
 backend, not something Vercel's static/serverless model is set up to run
 as-is.
 
-It does this with an explicit `builds` entry naming `@vercel/static-build`
-against `web/mobile-app/package.json`, with `distDir: "dist"`. Declaring
+Both apps ship from one deployment: the mobile PWA at `/` and the back
+office at `/admin`. The back office's `vercel-build` script sets
+`BACK_OFFICE_BASE=/admin/`, which Vite bakes into its asset URLs and React
+Router reads back as its `basename` — so the two can't drift apart. Local
+`npm run dev` and `npm run build` are unaffected and still serve from the
+root.
+
+It does this with explicit `builds` entries naming `@vercel/static-build`
+against each app's `package.json`, with `distDir: "dist"`. Declaring
 the builder outright is deliberate: it takes Vercel's framework
 auto-detection out of the picture entirely. Detection reads the *root*
 `package.json`, sees `express`, and concludes "Node server" — at which

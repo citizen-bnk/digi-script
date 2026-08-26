@@ -1,61 +1,48 @@
 import { useState } from 'react'
 import type { DemoPersonaGroup, DemoPersonaUser } from '../api/client'
-import { BubbleLogo } from './LoginScreen'
 
 /**
- * The demo sign-in flow: pick a role, then pick which of the two seeded
- * people to be. Credentials come from the API's persona list rather than
- * being typed, so a demonstrator never has to remember an address on stage.
+ * Demo sign-in, shown beneath the ordinary login form: pick a role, then
+ * pick which of the seeded people to be. The buttons carry only an email —
+ * the server holds the demo credential — and the whole section is absent
+ * when demo mode is off, leaving the plain login form.
  */
 export function DemoPickerScreen({
   groups,
   onPick,
-  onUseEmail,
   busyEmail,
-  error,
 }: {
   groups: DemoPersonaGroup[]
   onPick: (user: DemoPersonaUser) => void
-  onUseEmail: () => void
   busyEmail: string | null
-  error: string | null
 }) {
   const [role, setRole] = useState<string | null>(null)
   const selected = groups.find((group) => group.role === role) ?? null
 
   return (
-    <div className="screen">
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <BubbleLogo size={60} />
-        <h1 style={{ fontSize: 22, margin: '12px 0 4px' }}>DigiScript</h1>
+    <section className="demo-section">
+      <div className="demo-section-head">
+        <span className="demo-rule" />
         <span className="demo-badge">Demo</span>
+        <span className="demo-rule" />
       </div>
 
-      <h2 style={{ fontSize: 18, margin: '0 0 4px' }}>
-        {selected ? selected.label : 'Who are you signing in as?'}
-      </h2>
-      <p style={{ color: 'var(--neutral-600)', fontSize: 14, margin: '0 0 20px' }}>
-        {selected ? selected.blurb : 'Choose a role to see the demo accounts for it.'}
+      <p className="demo-section-hint">
+        {selected ? selected.blurb : 'Or sign in as one of the demo accounts:'}
       </p>
 
-      {error && <div className="error-banner">{error}</div>}
-
-      {!selected ? (
-        <div className="demo-list">
-          {groups.map((group) => (
-            <button key={group.role} type="button" className="demo-row" onClick={() => setRole(group.role)}>
-              <span className="demo-row-main">
-                <span className="demo-row-title">{group.label}</span>
-                <span className="demo-row-sub">{group.blurb}</span>
-              </span>
-              <span className="demo-row-chevron">›</span>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="demo-list">
-            {selected.users.map((user) => (
+      <div className="demo-list">
+        {!selected
+          ? groups.map((group) => (
+              <button key={group.role} type="button" className="demo-row" onClick={() => setRole(group.role)}>
+                <span className="demo-row-main">
+                  <span className="demo-row-title">{group.label}</span>
+                  <span className="demo-row-sub">{group.blurb}</span>
+                </span>
+                <span className="demo-row-chevron">›</span>
+              </button>
+            ))
+          : selected.users.map((user) => (
               <button
                 key={user.email}
                 type="button"
@@ -68,22 +55,17 @@ export function DemoPickerScreen({
                   <span className="demo-row-title">{user.name}</span>
                   <span className="demo-row-sub">{user.subtitle}</span>
                 </span>
-                <span className="demo-row-chevron">
-                  {busyEmail === user.email ? '…' : '›'}
-                </span>
+                <span className="demo-row-chevron">{busyEmail === user.email ? '…' : '›'}</span>
               </button>
             ))}
-          </div>
-          <button type="button" className="btn-secondary" style={{ marginTop: 16 }} onClick={() => setRole(null)}>
-            ← All roles
-          </button>
-        </>
-      )}
+      </div>
 
-      <button type="button" className="demo-link" onClick={onUseEmail}>
-        Sign in with an email address instead
-      </button>
-    </div>
+      {selected && (
+        <button type="button" className="btn-secondary" style={{ marginTop: 12 }} onClick={() => setRole(null)}>
+          ← All roles
+        </button>
+      )}
+    </section>
   )
 }
 

@@ -5,10 +5,16 @@
       "src": "web/mobile-app/package.json",
       "use": "@vercel/static-build",
       "config": { "distDir": "dist" }
+    },
+    {
+      "src": "web/back-office/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     }
   ],
   "routes": [
-    { "src": "/", "dest": "/web/mobile-app/index.html" },
+    { "src": "/admin", "dest": "/web/back-office/index.html" },
+    { "src": "/admin/(.*)", "dest": "/web/back-office/$1" },
     {
       "src": "/sw.js",
       "dest": "/web/mobile-app/sw.js",
@@ -16,6 +22,7 @@
     },
     { "src": "/(.*)", "dest": "/web/mobile-app/$1" },
     { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/web/mobile-app/index.html" }
+    { "src": "/web/back-office/(.*)", "dest": "/web/back-office/index.html" },
+    { "src": "/(.*)", "dest": "/web/mobile-app/index.html" }
   ]
 }

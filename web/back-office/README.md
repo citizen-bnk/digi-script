@@ -35,6 +35,7 @@ school is no longer visible to the account.
 | --- | --- |
 | Dashboard | `GET /schools/:id/stats`, `GET /audit` |
 | Multi-School Overview | `GET /schools` (System Owner only) |
+| Per-school demo toggle | `PATCH /schools/:id/demo-mode` (System Owner only) |
 | Document Library + upload/confirm | `GET/POST /documents`, `POST /documents/:id/confirm-category` |
 | Document detail | `GET /documents/:id` |
 | Escalations (list + detail + resolve) | `GET /escalations`, `POST /escalations/:id/resolve` |
@@ -86,14 +87,16 @@ npm run dev      # API on :4000
 
 ### Demo mode
 
-Run the API with `DEMO_MODE=true` and this app's login screen becomes a
-role picker: District Office / Principal / Support Desk, each with the two
-seeded people behind it, one click to sign in. Nothing is typed. See the
-root README's "Running a demo" for the seeded district and the warning
-that goes with `DEMO_MODE`.
+With the API running under `DEMO_MODE=true`, the login screen keeps its
+ordinary email/password form and adds a demo section beneath it: District
+Office / Principal / Support Desk, each with the seeded people behind it,
+one click to sign in. No password is shown or sent — the button carries
+only the persona's email and the server issues the token. With demo mode
+off, the section is absent and this is a plain login form.
 
-Without demo mode it is an ordinary email/password form. The seeded
-accounts all use the password `Demo1234!` — `npm run seed` prints them.
+A **System Owner** switches demo mode per school from the Multi-School
+screen's "Demo logins" column. A school that is off contributes no demo
+accounts to either app. See the root README's "Running a demo".
 
 Point at a different API with `VITE_API_URL` in `.env.local`:
 

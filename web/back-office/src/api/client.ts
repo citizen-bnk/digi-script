@@ -80,6 +80,7 @@ export interface School {
   address?: string | null
   phone?: string | null
   principalName?: string | null
+  demoModeEnabled: boolean
   district?: { id: string; name: string } | null
   counts: {
     users: number
@@ -160,7 +161,6 @@ export interface AuditEntry {
 export interface DemoPersonaUser {
   name: string
   email: string
-  password: string
   subtitle: string
 }
 
@@ -179,6 +179,16 @@ export const api = {
   demoPersonas: (app: 'mobile' | 'back-office') =>
     request<{ demoMode: boolean; groups: DemoPersonaGroup[] }>(`/demo/personas?app=${app}`),
 
+  /**
+   * Signs in a demo persona by email alone — the server holds the demo
+   * password, so no credential is ever sent to or held by this app.
+   */
+  demoLogin: (email: string) =>
+    request<{ user: AuthUser; token: string }>('/demo/login', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
   login: (email: string, password: string) =>
     request<{ user: AuthUser; token: string }>('/auth/login', {
       method: 'POST',
@@ -190,6 +200,13 @@ export const api = {
   listSchools: () => request<{ schools: School[] }>('/schools'),
 
   schoolStats: (schoolId: string) => request<{ stats: SchoolStats }>(`/schools/${schoolId}/stats`),
+
+  /** SYSTEM_OWNER only: turns one school's demo logins on or off. */
+  setSchoolDemoMode: (schoolId: string, enabled: boolean) =>
+    request<{ school: { id: string; name: string; demoModeEnabled: boolean } }>(
+      `/schools/${schoolId}/demo-mode`,
+      { method: 'PATCH', body: JSON.stringify({ enabled }) },
+    ),
 
   listUsers: (schoolId: string) => request<{ users: StaffUser[] }>(`/users?schoolId=${schoolId}`),
 

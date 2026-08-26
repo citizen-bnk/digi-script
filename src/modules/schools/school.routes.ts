@@ -1,10 +1,17 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Role } from "@prisma/client";
 import { validateBody } from "../../middleware/validate.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireRole, requireSameSchool, ROLE_GROUPS } from "../../middleware/rbac.js";
 import { signToken, toAuthenticatedUser } from "../../middleware/auth.js";
-import { registerSchool, getSchoolById, listSchools, getSchoolStats } from "./school.service.js";
+import {
+  registerSchool,
+  getSchoolById,
+  listSchools,
+  getSchoolStats,
+  setSchoolDemoMode,
+} from "./school.service.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 
 export const schoolRouter = Router();
@@ -50,6 +57,20 @@ schoolRouter.get(
     requireSameSchool(req.params.schoolId, req.user!);
     const school = await getSchoolById(req.params.schoolId);
     res.json({ school });
+  }),
+);
+
+// SYSTEM_OWNER only, deliberately narrower than the rest of this router:
+// turning demo mode on exposes a school's staff as one-click logins, which
+// is a district-level decision rather than a principal's.
+schoolRouter.patch(
+  "/:schoolId/demo-mode",
+  requireAuth,
+  requireRole(Role.SYSTEM_OWNER),
+  validateBody(z.object({ enabled: z.boolean() })),
+  asyncHandler(async (req, res) => {
+    const school = await setSchoolDemoMode(req.params.schoolId, req.body.enabled, req.user!.id);
+    res.json({ school: { id: school.id, name: school.name, demoModeEnabled: school.demoModeEnabled } });
   }),
 );
 

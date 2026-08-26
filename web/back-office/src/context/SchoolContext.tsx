@@ -16,6 +16,8 @@ interface SchoolContextValue {
   setActiveSchoolId: (schoolId: string) => void
   loading: boolean
   error: string | null
+  /** Re-fetches the school list, e.g. after a demo-mode toggle. */
+  reload: () => void
 }
 
 const SchoolContext = createContext<SchoolContextValue | undefined>(undefined)
@@ -28,6 +30,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<string | null>(() => localStorage.getItem(ACTIVE_SCHOOL_KEY))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
     if (!user) {
@@ -52,7 +55,9 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, nonce])
+
+  const reload = useCallback(() => setNonce((n) => n + 1), [])
 
   const setActiveSchoolId = useCallback((schoolId: string) => {
     setActiveId(schoolId)
@@ -66,8 +71,9 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       setActiveSchoolId,
       loading,
       error,
+      reload,
     }),
-    [schools, activeId, setActiveSchoolId, loading, error],
+    [schools, activeId, setActiveSchoolId, loading, error, reload],
   )
 
   return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>

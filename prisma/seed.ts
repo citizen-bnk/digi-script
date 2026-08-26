@@ -197,6 +197,9 @@ async function main() {
         address: school.address,
         phone: school.phone,
         principalName: school.principalName,
+        // Both demo schools start switched on; a SYSTEM_OWNER can turn
+        // either off from the back office's Multi-School screen.
+        demoModeEnabled: true,
       },
     });
     schoolsByKey.set(school.key, created);
@@ -348,8 +351,8 @@ async function main() {
   console.log(`  Users:      ${DEMO_PERSONAS.length} (2 per role)`);
   console.log(`  Documents:  ${documentCount} (through the real categorization pipeline)`);
   console.log(`  Escalations:${escalationCount} total, ${pendingCount} still open`);
-  console.log(`\n  Every demo login uses the password: ${DEMO_PASSWORD}`);
-  console.log("  Run the API with DEMO_MODE=true and the apps show a role picker — no typing needed.\n");
+  console.log("\n  Run the API with DEMO_MODE=true and both apps show a role picker.");
+  console.log("  Sign-in is one click — no password is shown, typed, or sent to the browser.\n");
 }
 
 main()

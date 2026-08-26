@@ -157,7 +157,18 @@ a {
   color: var(--neutral-600);
 }
 
-/* ---------- demo sign-in picker ---------- */
+/* ---------- demo sign-in section (below the login form) ---------- */
+
+.demo-section { margin-top: 28px; }
+
+.demo-section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.demo-rule { flex: 1; height: 1px; background: var(--neutral-200); }
 
 .demo-badge {
   display: inline-block;
@@ -167,6 +178,13 @@ a {
   color: #9a6700;
   font-size: 12px;
   font-weight: 700;
+}
+
+.demo-section-hint {
+  font-size: 13px;
+  color: var(--neutral-600);
+  margin: 0 0 12px;
+  text-align: center;
 }
 
 .demo-list {
@@ -180,7 +198,7 @@ a {
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 14px 16px;
+  padding: 13px 14px;
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md);
   background: var(--white);
@@ -199,26 +217,14 @@ a {
 .demo-row-chevron { font-size: 22px; color: var(--neutral-300); flex-shrink: 0; }
 
 .demo-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   background: #e8f1fb;
   color: var(--primary-dark);
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
-}
-
-.demo-link {
-  display: block;
-  margin: 24px auto 0;
-  background: none;
-  border: none;
-  color: var(--neutral-600);
-  font-size: 13px;
-  text-decoration: underline;
-  cursor: pointer;
-  font-family: inherit;
 }

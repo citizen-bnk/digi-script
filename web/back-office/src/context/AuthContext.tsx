@@ -5,6 +5,7 @@ interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginAsDemo: (email: string) => Promise<void>
   logout: () => void
 }
 
@@ -35,12 +36,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user)
   }, [])
 
+  // Demo sign-in carries no password: the server holds it and issues the
+  // token from the persona's email alone.
+  const loginAsDemo = useCallback(async (email: string) => {
+    const res = await api.demoLogin(email)
+    setToken(res.token)
+    setUser(res.user)
+  }, [])
+
   const logout = useCallback(() => {
     setToken(null)
     setUser(null)
   }, [])
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, loginAsDemo, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

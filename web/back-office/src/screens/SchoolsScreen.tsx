@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api, ApiError } from '../api/client'
 import { useSchool } from '../context/SchoolContext'
 
 /**
@@ -7,8 +9,26 @@ import { useSchool } from '../context/SchoolContext'
  * which here means making it the active school for every other screen.
  */
 export default function SchoolsScreen() {
-  const { schools, activeSchool, setActiveSchoolId, loading, error } = useSchool()
+  const { schools, activeSchool, setActiveSchoolId, loading, error, reload } = useSchool()
   const navigate = useNavigate()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [toggleError, setToggleError] = useState<string | null>(null)
+
+  // Turning demo mode on for a school makes its staff and learners
+  // available as one-click demo logins. District-level decision, so it
+  // lives here rather than in a school's own settings.
+  async function toggleDemo(schoolId: string, enabled: boolean) {
+    setBusyId(schoolId)
+    setToggleError(null)
+    try {
+      await api.setSchoolDemoMode(schoolId, enabled)
+      reload()
+    } catch (err) {
+      setToggleError(err instanceof ApiError ? err.message : 'Could not change demo mode')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   function drillInto(schoolId: string) {
     setActiveSchoolId(schoolId)
@@ -23,6 +43,7 @@ export default function SchoolsScreen() {
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+      {toggleError && <div className="error-banner">{toggleError}</div>}
 
       <div className="card">
         <div className="table-wrap">
@@ -36,19 +57,20 @@ export default function SchoolsScreen() {
                 <th>Students</th>
                 <th>Documents</th>
                 <th>Open escalations</th>
+                <th>Demo logins</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="state">
+                  <td colSpan={8} className="state">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && schools.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="state">
+                  <td colSpan={8} className="state">
                     No schools visible to this account.
                   </td>
                 </tr>
@@ -74,6 +96,21 @@ export default function SchoolsScreen() {
                     ) : (
                       <span className="pill pill-ok">0</span>
                     )}
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busyId === school.id}
+                      aria-pressed={school.demoModeEnabled}
+                      onClick={() => toggleDemo(school.id, !school.demoModeEnabled)}
+                    >
+                      {busyId === school.id
+                        ? 'Saving…'
+                        : school.demoModeEnabled
+                          ? 'On — turn off'
+                          : 'Off — turn on'}
+                    </button>
                   </td>
                 </tr>
               ))}

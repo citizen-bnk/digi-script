@@ -72,11 +72,15 @@ screen automatically based on your role.
 
 ### Demo mode
 
-Run the API with `DEMO_MODE=true` and the login screen becomes a role
-picker: Supervisor/Nurse, Teacher, Parent, Learner, each with the two
-seeded people behind it, one click to sign in. Nothing is typed. See the
-root README's "Running a demo" for the seeded district and the warning
-that goes with `DEMO_MODE`.
+With the API running under `DEMO_MODE=true`, the login screen keeps its
+ordinary email/password form and adds a demo section beneath it:
+Supervisor/Nurse, Teacher, Parent, Learner, each with the seeded people
+behind it, one click to sign in. No password is shown or sent — the button
+carries only the persona's email and the server issues the token. With
+demo mode off, the section is absent and this is a plain login form.
+
+Which schools take part is a per-school switch a System Owner controls
+from the back office. See the root README's "Running a demo".
 
 ## Testing in a desktop browser
 

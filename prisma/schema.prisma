@@ -37,6 +37,10 @@ model School {
   phone          String?
   principalName  String?
   retentionYears Int      @default(3)
+  // Per-school demo switch, toggled by a SYSTEM_OWNER from the back office.
+  // The DEMO_MODE env var is the deployment-level master switch; this says
+  // which schools take part once demo mode is available at all.
+  demoModeEnabled Boolean @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

@@ -109,6 +109,33 @@ export async function listSchools(user: AuthenticatedUser) {
   }));
 }
 
+/**
+ * Turns demo participation on or off for one school. SYSTEM_OWNER only —
+ * this decides whose staff and learners appear as one-click demo logins, so
+ * it is not a school-level setting a principal can grant themselves.
+ */
+export async function setSchoolDemoMode(schoolId: string, enabled: boolean, actorUserId: string) {
+  const school = await prisma.school.findUnique({ where: { id: schoolId } });
+  if (!school) {
+    throw AppError.notFound("School not found");
+  }
+
+  const updated = await prisma.school.update({
+    where: { id: schoolId },
+    data: { demoModeEnabled: enabled },
+  });
+
+  await recordAuditEntry({
+    actorUserId,
+    schoolId,
+    action: enabled ? "DEMO_MODE_ENABLED" : "DEMO_MODE_DISABLED",
+    targetType: "School",
+    targetId: schoolId,
+  });
+
+  return updated;
+}
+
 /** Dashboard cards for a single school (Application Spec section 5). */
 export async function getSchoolStats(schoolId: string) {
   const [users, students, documents, pendingEscalations, documentsAwaitingReview] = await Promise.all([

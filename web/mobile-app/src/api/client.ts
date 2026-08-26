@@ -122,7 +122,6 @@ export interface Escalation {
 export interface DemoPersonaUser {
   name: string
   email: string
-  password: string
   subtitle: string
 }
 
@@ -140,6 +139,16 @@ export const api = {
    */
   demoPersonas: (app: 'mobile' | 'back-office') =>
     request<{ demoMode: boolean; groups: DemoPersonaGroup[] }>(`/demo/personas?app=${app}`),
+
+  /**
+   * Signs in a demo persona by email alone — the server holds the demo
+   * password, so no credential is ever sent to or held by this app.
+   */
+  demoLogin: (email: string) =>
+    request<{ user: AuthUser; token: string }>('/demo/login', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
 
   login: (email: string, password: string) =>
     request<{ user: AuthUser; token: string }>('/auth/login', {
