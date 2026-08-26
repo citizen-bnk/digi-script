@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { prisma } from "../../db/prisma.js";
 import { logger } from "../../utils/logger.js";
+import { redactConnectionStrings } from "../../utils/redact.js";
 import { AppError } from "../../utils/app-error.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 import { validateBody } from "../../middleware/validate.js";
@@ -164,16 +165,6 @@ demoRouter.post(
   }),
 );
 
-/**
- * Prisma includes the datasource URL in several of its error messages, and
- * that URL carries the database password. Anything sent to a browser has to
- * have it removed first.
- */
-function redactConnectionStrings(message: string): string {
-  return message
-    .replace(/\b[a-z]+(?:ql)?:\/\/[^\s"']+/gi, "[connection string removed]")
-    .slice(0, 600);
-}
 
 const demoLoginSchema = z.object({ email: z.string().email() });
 

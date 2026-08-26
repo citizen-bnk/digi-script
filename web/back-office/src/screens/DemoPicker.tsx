@@ -93,6 +93,11 @@ export default function DemoPicker({
       onSeeded()
     } catch (err) {
       setSeedError(err instanceof ApiError ? err.message : 'Could not load the demo data')
+      // Seeding is a long run of writes. It can finish and still fail to
+      // answer — a duration limit, a dropped connection — leaving a loaded
+      // demo reported as broken. Reload either way and let the data decide:
+      // if the accounts are there, the list replaces this message.
+      onSeeded()
     } finally {
       setSeeding(false)
     }

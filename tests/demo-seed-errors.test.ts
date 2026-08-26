@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { redactConnectionStrings } from "../src/utils/redact.js";
 
 /**
  * "Internal server error" is what a failing seed said on a hosted
@@ -12,17 +13,31 @@ import { readFileSync } from "node:fs";
  */
 const source = readFileSync(new URL("../src/modules/demo/demo.routes.ts", import.meta.url), "utf8");
 
-/** The redaction, lifted from the route so the real pattern is exercised. */
-function redactConnectionStrings(message: string): string {
-  return message
-    .replace(/\b[a-z]+(?:ql)?:\/\/[^\s"']+/gi, "[connection string removed]")
-    .slice(0, 600);
-}
 
 describe("demo seed failures", () => {
   it("returns the reason rather than a bare 500", () => {
     expect(source).toContain('"Loading the demo data failed part-way through."');
     expect(source).toContain("reason:");
+  });
+
+  it("gives every endpoint the same treatment, not just the seed", () => {
+    // Covering one route left the next failure — a demo sign-in — reporting
+    // "Internal server error" with nothing to act on.
+    const handler = readFileSync(
+      new URL("../src/middleware/error-handler.ts", import.meta.url),
+      "utf8",
+    );
+    expect(handler).toContain("redactConnectionStrings");
+    expect(handler).toContain("env.DEMO_MODE");
+  });
+
+  it("says nothing beyond the generic message when demo mode is off", () => {
+    // A deployment holding real records keeps detail in the log.
+    const handler = readFileSync(
+      new URL("../src/middleware/error-handler.ts", import.meta.url),
+      "utf8",
+    );
+    expect(handler).toMatch(/env\.DEMO_MODE\s*\n?\s*\?/);
   });
 
   it("strips the password out of a Prisma connection error", () => {

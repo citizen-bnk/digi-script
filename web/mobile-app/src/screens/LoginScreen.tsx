@@ -45,6 +45,9 @@ export function LoginScreen() {
         if (cancelled) return
         setDemo(res)
         setDemoFailure(null)
+        // A reload only happens on a deliberate retry, so a message from the
+        // previous attempt has been answered and should not outlive it.
+        setError(null)
       })
       .catch((err) => {
         if (cancelled) return
