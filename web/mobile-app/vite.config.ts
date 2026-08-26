@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { NAVIGATION_FALLBACK_DENYLIST } from './pwa-routing.js'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -11,6 +12,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Without this the navigation fallback answers for /api and /admin
+        // too, hiding the API and the back-office behind this app's shell.
+        navigateFallbackDenylist: NAVIGATION_FALLBACK_DENYLIST,
+      },
       includeAssets: ['favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
