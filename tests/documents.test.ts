@@ -293,3 +293,34 @@ describe("document ingestion, RBAC, escalation, and audit", () => {
     );
   });
 });
+
+/**
+ * Categories are shared across schools and created on first use, so two
+ * uploads landing in the same category at the same moment both find it
+ * absent and both try to create it. Prisma's upsert is a read then a write,
+ * not an atomic operation, so the loser used to fail on the unique index and
+ * take an otherwise valid upload down with it — which is exactly what
+ * happened the first time the demo seed ingested documents in parallel.
+ */
+describe("concurrent uploads into the same category", () => {
+  it("all succeed rather than one losing the race", async () => {
+    const registered = await registerSchool();
+
+    const uploads = Array.from({ length: 6 }, (_, index) =>
+      request(app)
+        .post("/documents")
+        .set("Authorization", `Bearer ${registered.token}`)
+        .field("schoolId", registered.school.id)
+        .attach("file", Buffer.from("attendance register present absent"), `Register_${index}.pdf`),
+    );
+
+    const results = await Promise.all(uploads);
+    for (const res of results) {
+      expect(res.status, JSON.stringify(res.body).slice(0, 160)).toBe(201);
+    }
+
+    // And they all land in the one category, rather than duplicating it.
+    const names = new Set(results.map((r) => r.body.document.category?.name));
+    expect(names.size).toBe(1);
+  });
+});

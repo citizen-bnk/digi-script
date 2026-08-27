@@ -43,11 +43,7 @@ export async function ingestDocument(input: IngestDocumentInput) {
     textSample: input.textSample,
   });
 
-  const categoryRecord = await prisma.documentCategory.upsert({
-    where: { name: category },
-    create: { name: category },
-    update: {},
-  });
+  const categoryRecord = await findOrCreateCategory(category);
 
   const status =
     confidence >= env.AI_CATEGORIZATION_LOW_CONFIDENCE ? DocumentStatus.CATEGORIZED : DocumentStatus.ESCALATED;
@@ -211,4 +207,29 @@ export async function confirmDocumentCategory(
   });
 
   return updated;
+}
+
+/**
+ * Categories are shared across schools and created on first use, so two
+ * uploads landing in the same category at the same moment both find it
+ * absent and both try to create it. Prisma's upsert does not make that
+ * atomic — it is a read followed by a write — so the loser fails on the
+ * unique index and takes an otherwise valid upload down with it.
+ *
+ * Treat losing the race as success: the row the other writer created is the
+ * row this one wanted.
+ */
+async function findOrCreateCategory(name: string) {
+  const existing = await prisma.documentCategory.findUnique({ where: { name } });
+  if (existing) return existing;
+
+  try {
+    return await prisma.documentCategory.create({ data: { name } });
+  } catch (error) {
+    if ((error as { code?: string } | null)?.code !== "P2002") throw error;
+    // Created by a concurrent upload between the read and the write.
+    const created = await prisma.documentCategory.findUnique({ where: { name } });
+    if (created) return created;
+    throw error;
+  }
 }
