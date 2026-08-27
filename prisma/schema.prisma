@@ -245,6 +245,24 @@ enum EscalationReasonType {
   MANUAL_REQUEST
 }
 
+// The bytes behind a Document.
+//
+// Kept in its own table so listing documents never drags file contents along
+// with it, and in the database rather than on disk because the deployment
+// target is a serverless function: there the only writable path is /tmp, and
+// it is wiped between cold starts, so an uploaded file would survive exactly
+// as long as the container that received it. A real deployment swaps this for
+// S3 by implementing StorageService — the interface is unchanged.
+model DocumentFile {
+  storageKey String   @id
+  mimeType   String
+  sizeBytes  Int
+  bytes      Bytes
+  createdAt  DateTime @default(now())
+
+  @@map("document_files")
+}
+
 model Escalation {
   id               String               @id @default(uuid())
   schoolId         String

@@ -35,6 +35,7 @@ export async function ingestDocument(input: IngestDocumentInput) {
   const stored = await storageService.save({
     schoolId: input.schoolId,
     filename: input.filename,
+    mimeType: input.mimeType,
     buffer: input.buffer,
   });
 

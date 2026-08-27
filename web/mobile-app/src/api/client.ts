@@ -15,6 +15,14 @@ const API_URL_UNCONFIGURED =
   typeof window !== 'undefined' &&
   !['localhost', '127.0.0.1'].includes(window.location.hostname)
 
+/** Fired when the server rejects the stored token, so the app can sign out. */
+export const UNAUTHORIZED_EVENT = 'digiscript:unauthorized'
+
+/** Endpoints where a 401 means "wrong credentials", not "session over". */
+function isSignInPath(path: string): boolean {
+  return path.startsWith('/auth/login') || path.startsWith('/demo/login')
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -65,6 +73,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const body = isJson ? await res.json() : undefined
 
   if (!res.ok) {
+    // A rejected token mid-session used to leave the app signed in and
+    // broken: /auth/me clears a bad token on load, but nothing handled one
+    // going stale afterwards, so every later action failed with "Invalid or
+    // expired token" and no route back to the sign-in screen. A secret
+    // rotated on the server does exactly this to everyone already signed in.
+    //
+    // Sign-in itself is exempt: a 401 there means the password was wrong,
+    // not that a session ended.
+    if (res.status === 401 && !isSignInPath(path)) {
+      setToken(null)
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    }
+
     // Some endpoints send a `reason` alongside `error`: the short sentence is
     // for the screen, the reason is what makes the failure actionable. Losing
     // it left "Internal server error" as the whole of what a user could see.

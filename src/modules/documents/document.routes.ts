@@ -1,6 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
+import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
+import { storageService } from "../../services/storage/storage.service.js";
 import { DocumentStatus, Sensitivity } from "@prisma/client";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireRole, requireSameSchool, ROLE_GROUPS } from "../../middleware/rbac.js";
@@ -12,7 +14,36 @@ export const documentRouter = Router();
 
 documentRouter.use(requireAuth);
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+/**
+ * A serverless request body is capped at about 4.5 MB by the platform, well
+ * under multer's old 100 MB. Anything larger never reached this code: the
+ * platform rejected it first, with a page that said nothing about file size.
+ * Refusing it here gives the uploader a reason it can act on.
+ */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES },
+});
+
+/** Turns multer's own rejections into the API's error shape. */
+function handleUploadErrors(
+  err: unknown,
+  _req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
+  if ((err as { code?: string } | null)?.code === "LIMIT_FILE_SIZE") {
+    next(
+      AppError.badRequest(
+        `That file is larger than the ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB upload limit.`,
+      ),
+    );
+    return;
+  }
+  next(err);
+}
 
 const uploadMetaSchema = z.object({
   schoolId: z.string().uuid(),
@@ -27,6 +58,7 @@ documentRouter.post(
   "/",
   requireRole(...ROLE_GROUPS.documentReview),
   upload.single("file"),
+  handleUploadErrors,
   asyncHandler(async (req, res) => {
     if (!req.file) {
       throw AppError.badRequest("A file is required (multipart field 'file')");
@@ -83,6 +115,40 @@ documentRouter.get(
     requireSameSchool(schoolId, req.user!);
     const document = await getDocument(req.user!, req.params.documentId, schoolId);
     res.json({ document });
+  }),
+);
+
+/**
+ * The file itself. Until this existed the pipeline stopped at "stored": a
+ * document could be uploaded, categorized and filed, and then never opened
+ * again — no viewer, no download, no way to confirm what had been captured.
+ *
+ * Access goes through getDocument first, so this is scoped exactly like the
+ * metadata: a teacher who may not read a document may not read its bytes by
+ * asking for a different URL.
+ */
+documentRouter.get(
+  "/:documentId/file",
+  requireRole(...ROLE_GROUPS.documentRead),
+  asyncHandler(async (req, res) => {
+    const schoolId = req.query.schoolId as string;
+    requireSameSchool(schoolId, req.user!);
+
+    const document = await getDocument(req.user!, req.params.documentId, schoolId);
+    const file = await storageService.read(document.storageKey);
+    if (!file) {
+      throw AppError.notFound("The stored file for this document is no longer available");
+    }
+
+    // `inline` so a viewer can render it in place; the filename is still
+    // carried so a download saves under the name it was uploaded with.
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader("Content-Length", String(file.sizeBytes));
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${document.originalFilename.replace(/["\\]/g, "")}"`,
+    );
+    res.send(file.bytes);
   }),
 );
 

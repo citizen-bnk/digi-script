@@ -9,6 +9,7 @@ import {
   type SchoolKey,
 } from "./demo.personas.js";
 import { ingestDocument } from "../documents/document.service.js";
+import { pdfBytes, pngBytes } from "./demo.files.js";
 import {
   getOrCreateConversation,
   resolveConversation,
@@ -31,6 +32,32 @@ import type { AuthenticatedUser } from "../../types/auth.js";
  * a set of pre-baked rows that happen to look right.
  */
 
+/**
+ * Real bytes for a seeded document: a readable one-page PDF for paperwork,
+ * a photograph-shaped PNG for anything the scanning team would have
+ * captured with a camera.
+ */
+function demoFileFor(doc: SeedDocument, schoolName: string): { buffer: Buffer; mimeType: string } {
+  if (doc.filename.toLowerCase().endsWith(".png")) {
+    return { buffer: pngBytes(), mimeType: "image/png" };
+  }
+
+  const heading = doc.filename.replace(/\.[^.]+$/, "").replace(/_/g, " ");
+  // Wrapped by hand: the PDF writer draws a line at a time and has no idea
+  // how wide the page is.
+  const wrapped = doc.textSample.match(/.{1,78}(\s|$)/g) ?? [doc.textSample];
+
+  return {
+    buffer: pdfBytes(heading, [
+      schoolName,
+      doc.term ? `${doc.term} 2026` : "2026",
+      "",
+      ...wrapped.map((line) => line.trim()),
+    ]),
+    mimeType: "application/pdf",
+  };
+}
+
 /** Clears prior data so `npm run seed` can be re-run between demo runs. */
 async function reset() {
   await prisma.auditLog.deleteMany();
@@ -38,6 +65,8 @@ async function reset() {
   await prisma.escalation.deleteMany();
   await prisma.conversation.deleteMany();
   await prisma.document.deleteMany();
+  // The bytes outlive the rows that point at them unless cleared here.
+  await prisma.documentFile.deleteMany();
   await prisma.documentCategory.deleteMany();
   await prisma.parentStudentLink.deleteMany();
   await prisma.budget.deleteMany();
@@ -150,9 +179,11 @@ const DOCUMENTS: SeedDocument[] = [
 
   // --- Deliberately unclassifiable: these land below the confidence
   //     threshold and appear in the escalation queue.
+  { filename: "Learner_ID_Card_Capture.png", textSample: "Identity document capture. Photographed learner identity card for enrolment records.", schoolKey: "lethabo", term: "Term 1" },
+  { filename: "Teacher_Registration_Form_Capture.png", textSample: "Photographed teacher registration form submitted during the capture drive.", schoolKey: "masibambane", term: "Term 1" },
   { filename: "SGB_Resolution_Signed_Scan.pdf", textSample: "Signed resolution of the governing body taken at the sitting of 18 February 2026.", schoolKey: "lethabo", term: "Term 1" },
-  { filename: "Scanned_Document_0043.pdf", textSample: "Photographed page, handwriting partly illegible.", schoolKey: "masibambane", learnerName: "Sibusiso Mthembu", term: "Term 1" },
-  { filename: "Untitled_Scan_0091.pdf", textSample: "Scanned page. Contents unclear from the capture.", schoolKey: "lethabo", term: "Term 2" },
+  { filename: "Scanned_Document_0043.png", textSample: "Photographed page, handwriting partly illegible.", schoolKey: "masibambane", learnerName: "Sibusiso Mthembu", term: "Term 1" },
+  { filename: "Untitled_Scan_0091.png", textSample: "Scanned page. Contents unclear from the capture.", schoolKey: "lethabo", term: "Term 2" },
 ];
 
 function asAuthUser(user: {
@@ -255,19 +286,24 @@ export async function seedDemoData() {
   const INGEST_CONCURRENCY = 4;
   for (let start = 0; start < DOCUMENTS.length; start += INGEST_CONCURRENCY) {
     await Promise.all(
-      DOCUMENTS.slice(start, start + INGEST_CONCURRENCY).map((doc) =>
-        ingestDocument({
-          schoolId: schoolsByKey.get(doc.schoolKey)!.id,
+      DOCUMENTS.slice(start, start + INGEST_CONCURRENCY).map((doc) => {
+        const school = schoolsByKey.get(doc.schoolKey)!;
+        const file = demoFileFor(doc, school.name);
+        return ingestDocument({
+          schoolId: school.id,
           uploadedByUserId: uploaderByKey[doc.schoolKey],
           filename: doc.filename,
-          mimeType: "application/pdf",
-          buffer: Buffer.from(doc.textSample),
+          mimeType: file.mimeType,
+          buffer: file.buffer,
           studentId: doc.learnerName ? learnersByName.get(doc.learnerName)!.id : undefined,
           academicYear: "2026",
           term: doc.term,
+          // The extracted text still drives categorization; the bytes are the
+          // file a viewer opens. Previously they were the same thing, which
+          // meant every stored document was a few sentences of plain text.
           textSample: doc.textSample,
-        }),
-      ),
+        });
+      }),
     );
   }
 

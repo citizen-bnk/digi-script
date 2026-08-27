@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, getToken, setToken, type AuthUser } from '../api/client'
+import { api, getToken, setToken, type AuthUser , UNAUTHORIZED_EVENT } from '../api/client'
 
 interface AuthContextValue {
   user: AuthUser | null
@@ -42,6 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.demoLogin(email)
     setToken(res.token)
     setUser(res.user)
+  }, [])
+
+  // The API clears the stored token when the server rejects it; this is the
+  // other half — dropping the user so the app returns to the sign-in screen
+  // instead of staying signed in and failing every action.
+  useEffect(() => {
+    const onUnauthorized = () => setUser(null)
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
   }, [])
 
   const logout = useCallback(() => {

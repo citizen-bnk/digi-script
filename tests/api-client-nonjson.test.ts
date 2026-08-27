@@ -49,3 +49,40 @@ describe.each(clients)("api client (%s)", (_name, path) => {
     expect(source).toMatch(/body\?\.error \?\? describeNonJson/);
   });
 });
+
+/**
+ * A token the server rejects mid-session used to leave the app signed in and
+ * broken. /auth/me clears a bad token on load, but nothing handled one going
+ * stale afterwards, so every later action failed with "Invalid or expired
+ * token" and offered no route back to the sign-in screen — which is exactly
+ * what rotating JWT_SECRET does to everyone already signed in.
+ */
+describe.each(clients)("rejected tokens (%s)", (_name, path) => {
+  const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+  it("clears the stored token and announces it on a 401", () => {
+    expect(source).toMatch(/res\.status === 401/);
+    expect(source).toContain("setToken(null)");
+    expect(source).toContain("UNAUTHORIZED_EVENT");
+  });
+
+  it("leaves sign-in alone, where a 401 only means the password was wrong", () => {
+    expect(source).toContain("isSignInPath");
+    expect(source).toContain("/auth/login");
+    expect(source).toContain("/demo/login");
+  });
+});
+
+describe.each([
+  ["mobile app", "web/mobile-app/src/context/AuthContext.tsx"],
+  ["back office", "web/back-office/src/context/AuthContext.tsx"],
+] as const)("session teardown (%s)", (_name, path) => {
+  it("drops the user when the API reports the token was rejected", () => {
+    // Clearing the token without dropping the user leaves the app rendering
+    // signed-in screens that cannot load anything.
+    const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+    expect(source).toContain("UNAUTHORIZED_EVENT");
+    expect(source).toMatch(/addEventListener\(UNAUTHORIZED_EVENT/);
+    expect(source).toMatch(/removeEventListener\(UNAUTHORIZED_EVENT/);
+  });
+});
