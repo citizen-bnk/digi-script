@@ -4,6 +4,7 @@ import { api, ApiError } from '../api/client'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
 import { Async, StatusPill, formatBytes, formatDate } from '../components/Async'
+import DocumentPreview from '../components/DocumentPreview'
 
 export default function DocumentDetailScreen() {
   const { documentId } = useParams<{ documentId: string }>()
@@ -102,10 +103,18 @@ export default function DocumentDetailScreen() {
                   </>
                 )}
 
-                <p className="cell-muted" style={{ marginTop: 18, marginBottom: 0 }}>
-                  There’s no preview or download: the backend records where the file is stored but has no endpoint
-                  that serves it back.
-                </p>
+              </div>
+
+              <div className="card card-pad" style={{ marginBottom: 18 }}>
+                <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 12 }}>File</h2>
+                {schoolId && documentId && (
+                  <DocumentPreview
+                    documentId={documentId}
+                    schoolId={schoolId}
+                    filename={res.document.originalFilename}
+                    mimeType={res.document.mimeType}
+                  />
+                )}
               </div>
 
               <div className="card card-pad">

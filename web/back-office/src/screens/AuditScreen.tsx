@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
 import { Async, formatDate } from '../components/Async'
+import { auditTargetPath } from '../lib/audit-target'
 
 /**
  * Audit Logs (PRD Use Case 4). A SYSTEM_OWNER may query across the district
@@ -12,6 +14,7 @@ import { Async, formatDate } from '../components/Async'
  */
 export default function AuditScreen() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { activeSchool, schools } = useSchool()
   const isOwner = user?.role === 'SYSTEM_OWNER'
   const [scope, setScope] = useState<string>(activeSchool?.id ?? '')
@@ -57,7 +60,10 @@ export default function AuditScreen() {
             <option value="DOCUMENT_CATEGORY_CONFIRMED">Category confirmed</option>
             <option value="ESCALATION_RESOLVED">Escalation resolved</option>
             <option value="USER_CREATED">User created</option>
+            <option value="USER_UPDATED">User updated</option>
             <option value="USER_DEACTIVATED">User deactivated</option>
+            <option value="STUDENT_CREATED">Student created</option>
+            <option value="STUDENT_UPDATED">Student updated</option>
             <option value="SCHOOL_REGISTERED">School registered</option>
           </select>
         </div>
@@ -77,19 +83,33 @@ export default function AuditScreen() {
                     <th>Target type</th>
                     <th>Target</th>
                     <th>When</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {res.entries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td className="cell-strong">{entry.action.replace(/_/g, ' ').toLowerCase()}</td>
-                      <td>{entry.targetType ?? '—'}</td>
-                      <td className="cell-muted" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
-                        {entry.targetId ? `${entry.targetId.slice(0, 8)}…` : '—'}
-                      </td>
-                      <td className="cell-muted">{formatDate(entry.createdAt)}</td>
-                    </tr>
-                  ))}
+                  {res.entries.map((entry) => {
+                    // An entry whose target has a screen in this portal opens
+                    // it; a Conversation or an Escalation does not, and is
+                    // left as a plain row rather than a link to a redirect.
+                    const path = auditTargetPath(entry.targetType, entry.targetId)
+                    return (
+                      <tr
+                        key={entry.id}
+                        className={path ? 'clickable' : undefined}
+                        onClick={path ? () => navigate(path) : undefined}
+                      >
+                        <td className="cell-strong">{entry.action.replace(/_/g, ' ').toLowerCase()}</td>
+                        <td>{entry.targetType ?? '—'}</td>
+                        <td className="cell-muted" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
+                          {entry.targetId ? `${entry.targetId.slice(0, 8)}…` : '—'}
+                        </td>
+                        <td className="cell-muted">{formatDate(entry.createdAt)}</td>
+                        <td className="cell-muted row-open" aria-hidden="true">
+                          {path ? '›' : ''}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

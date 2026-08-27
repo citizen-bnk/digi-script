@@ -1097,3 +1097,74 @@ input:focus, select:focus, textarea:focus {
    broke, and the amber treatment separates that from the neutral notes. */
 .info-note.is-fault { background: #fdf3d8; }
 .info-note.is-fault .info-note-icon { background: #9a6700; }
+
+/* The chevron that says a row opens something. Muted until the row is
+   hovered, so a long table does not read as a column of arrows. */
+.row-open {
+  text-align: right;
+  color: var(--line);
+  font-size: 18px;
+  width: 1px;
+}
+
+tbody tr.clickable:hover .row-open {
+  color: var(--brand);
+}
+
+/* A tile that is a link. The arrow only appears on hover, so a grid of
+   counters still reads as counters rather than as a row of buttons. */
+a.tile-link {
+  display: block;
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+a.tile-link:hover,
+a.tile-link:focus-visible {
+  border-color: var(--brand);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgb(15 23 42 / 8%);
+}
+
+.tile-go {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  color: var(--brand);
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+a.tile-link:hover .tile-go,
+a.tile-link:focus-visible .tile-go {
+  opacity: 1;
+}
+
+/* Document viewer. A fixed height keeps a tall scan from pushing the rest of
+   the detail screen off the page; the file itself scrolls or scales inside. */
+.doc-preview {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f4f6fa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  max-height: 62vh;
+}
+
+.doc-preview img {
+  max-width: 100%;
+  max-height: 62vh;
+  display: block;
+}
+
+.doc-preview iframe {
+  width: 100%;
+  height: 62vh;
+  border: 0;
+}

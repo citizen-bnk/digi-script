@@ -10,7 +10,11 @@ export function Async<T>({
   empty?: { when: (data: T) => boolean; message: string }
   children: (data: T) => ReactNode
 }) {
-  if (state.loading) return <div className="state">Loading…</div>
+  // Only the first load blanks the screen. A reload — after saving, or after
+  // a filter change — keeps the data that is already there: swapping a form
+  // for "Loading…" unmounts it mid-save, which took the "Saved" confirmation
+  // down with it and reset every field the moment the change succeeded.
+  if (state.loading && state.data == null) return <div className="state">Loading…</div>
   if (state.error) return <div className="error-banner">{state.error}</div>
   if (!state.data) return <div className="state">Nothing to show.</div>
   if (empty?.when(state.data)) return <div className="state">{empty.message}</div>

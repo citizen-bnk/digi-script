@@ -35,14 +35,24 @@ export function SupervisorHomeScreen() {
       {error && <div className="error-banner">{error}</div>}
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <div className="card" style={{ flex: 1 }}>
+        <button
+          type="button"
+          className="card"
+          onClick={() => navigate('/supervisor/escalations')}
+          style={{ flex: 1, textAlign: 'left', cursor: 'pointer' }}
+        >
           <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--warning)' }}>{escalations?.length ?? '—'}</div>
-          <div style={{ fontSize: 12, color: 'var(--neutral-600)' }}>New escalations</div>
-        </div>
-        <div className="card" style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, color: 'var(--neutral-600)' }}>New escalations ›</div>
+        </button>
+        <button
+          type="button"
+          className="card"
+          onClick={() => navigate('/supervisor/class')}
+          style={{ flex: 1, textAlign: 'left', cursor: 'pointer' }}
+        >
           <div style={{ fontSize: 24, fontWeight: 700 }}>{students?.length ?? '—'}</div>
-          <div style={{ fontSize: 12, color: 'var(--neutral-600)' }}>Students</div>
-        </div>
+          <div style={{ fontSize: 12, color: 'var(--neutral-600)' }}>Students ›</div>
+        </button>
       </div>
 
       <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Pending Escalations</div>

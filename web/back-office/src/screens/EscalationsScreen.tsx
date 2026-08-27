@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, ApiError, type Escalation } from '../api/client'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
@@ -107,11 +108,37 @@ export default function EscalationsScreen() {
                 <dt>Raised</dt>
                 <dd className="cell-muted">{formatDate(selected.createdAt)}</dd>
 
+                {/* A raw UUID told the reviewer nothing and went nowhere.
+                    What they need next is the document itself, and the
+                    learner it was filed against. */}
                 <dt>Document</dt>
-                <dd className="cell-muted">{selected.documentId ?? '—'}</dd>
+                <dd>
+                  {selected.documentId ? (
+                    <Link to={`/documents/${selected.documentId}`} style={{ color: 'var(--brand)' }}>
+                      Open the document →
+                    </Link>
+                  ) : (
+                    <span className="cell-muted">—</span>
+                  )}
+                </dd>
+
+                <dt>Student</dt>
+                <dd>
+                  {selected.studentId ? (
+                    <Link to={`/students/${selected.studentId}`} style={{ color: 'var(--brand)' }}>
+                      Open the student record →
+                    </Link>
+                  ) : (
+                    <span className="cell-muted">—</span>
+                  )}
+                </dd>
 
                 <dt>Conversation</dt>
-                <dd className="cell-muted">{selected.conversationId ?? '—'}</dd>
+                <dd className="cell-muted">
+                  {selected.conversationId
+                    ? 'Raised from a chat thread — conversations live in the mobile app.'
+                    : '—'}
+                </dd>
               </dl>
 
               {selected.status !== 'RESOLVED' && (

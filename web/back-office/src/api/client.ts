@@ -172,6 +172,27 @@ export interface Student {
   grade?: string | null
   className?: string | null
   dateOfBirth?: string | null
+  emergencyContacts?: unknown
+  medicalNotes?: unknown
+}
+
+/**
+ * A patch body. `null` clears a field and an absent key leaves it alone —
+ * the two are different intents, so an editor must not collapse them.
+ */
+export interface StudentPatch {
+  name?: string
+  grade?: string | null
+  className?: string | null
+  dateOfBirth?: string | null
+}
+
+export interface StaffUserPatch {
+  name?: string
+  phone?: string | null
+  role?: string
+  assignedClassName?: string | null
+  status?: string
 }
 
 export interface DocumentSummary {
@@ -228,6 +249,46 @@ export interface DemoPersonaGroup {
   label: string
   blurb: string
   users: DemoPersonaUser[]
+}
+
+/**
+ * Fetches a document's bytes.
+ *
+ * Kept apart from request() because the whole point here is a response that
+ * is *not* JSON — and because the bytes need a bearer token, so an <img src>
+ * or a plain link cannot reach them. The caller gets a Blob and turns it into
+ * an object URL.
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  const token = getToken()
+
+  if (API_URL_UNCONFIGURED) {
+    throw new ApiError(
+      0,
+      'This deployment has no backend configured. Set VITE_API_URL to a reachable DigiScript API and redeploy.',
+    )
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    throw new ApiError(0, `Can't reach the DigiScript API at ${API_URL}.`)
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      setToken(null)
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    }
+    const contentType = res.headers.get('content-type') ?? ''
+    const body = contentType.includes('application/json') ? await res.json() : undefined
+    throw new ApiError(res.status, body?.error ?? `Could not load the file (HTTP ${res.status}).`)
+  }
+
+  return res.blob()
 }
 
 export const api = {
@@ -291,6 +352,17 @@ export const api = {
     assignedClassName?: string
   }) => request<{ user: StaffUser }>('/users', { method: 'POST', body: JSON.stringify(input) }),
 
+  getUser: (userId: string, schoolId: string) =>
+    request<{ user: StaffUser & { phone?: string | null; studentId?: string | null } }>(
+      `/users/${userId}?schoolId=${schoolId}`,
+    ),
+
+  updateUser: (userId: string, schoolId: string, patch: StaffUserPatch) =>
+    request<{ user: StaffUser }>(`/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ schoolId, ...patch }),
+    }),
+
   deactivateUser: (userId: string, schoolId: string) =>
     request<{ user: { id: string; status: string } }>(`/users/${userId}/deactivate`, {
       method: 'POST',
@@ -301,12 +373,22 @@ export const api = {
 
   getStudent: (studentId: string) => request<{ student: Student }>(`/students/${studentId}`),
 
+  updateStudent: (studentId: string, patch: StudentPatch) =>
+    request<{ student: Student }>(`/students/${studentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
   listDocuments: (schoolId: string, params: { studentId?: string; status?: string } = {}) => {
     const qs = new URLSearchParams({ schoolId })
     if (params.studentId) qs.set('studentId', params.studentId)
     if (params.status) qs.set('status', params.status)
     return request<{ documents: DocumentSummary[] }>(`/documents?${qs.toString()}`)
   },
+
+  /** The document's actual bytes, for the in-page viewer and for download. */
+  documentFile: (documentId: string, schoolId: string) =>
+    requestBlob(`/documents/${documentId}/file?schoolId=${schoolId}`),
 
   getDocument: (documentId: string, schoolId: string) =>
     request<{ document: DocumentSummary }>(`/documents/${documentId}?schoolId=${schoolId}`),

@@ -11,6 +11,7 @@ import {
   linkParentToStudent,
   listMyChildren,
   listStudents,
+  updateStudent,
 } from "./student.service.js";
 
 export const studentRouter = Router();
@@ -94,5 +95,32 @@ studentRouter.post(
     requireSameSchool(body.schoolId, req.user!);
     const link = await linkParentToStudent({ ...body, studentId: req.params.studentId, actorUserId: req.user!.id });
     res.status(201).json({ link });
+  }),
+);
+
+/**
+ * Edits from the back-office student detail screen (Application Spec section
+ * 5, "Student Detail Drill-Down"). Nullable fields accept null to clear them
+ * — a learner whose class was recorded wrongly needs a way back to blank, and
+ * omitting the key means "leave alone", which is a different intent.
+ */
+const updateStudentSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    grade: z.string().nullable().optional(),
+    className: z.string().nullable().optional(),
+    dateOfBirth: z.coerce.date().nullable().optional(),
+    emergencyContacts: z.unknown().optional(),
+    medicalNotes: z.unknown().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, { message: "No fields to update" });
+
+studentRouter.patch(
+  "/:studentId",
+  requireRole(...ROLE_GROUPS.schoolManagement),
+  asyncHandler(async (req, res) => {
+    const body = updateStudentSchema.parse(req.body);
+    const student = await updateStudent(req.user!, req.params.studentId, body);
+    res.json({ student });
   }),
 );

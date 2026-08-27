@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
@@ -9,14 +9,24 @@ import UploadPanel from './UploadPanel'
 /**
  * Document Library (Application Spec section 5): the data table from the
  * back-office mock — name, category, status, size, uploaded — plus the
- * status filter. There is no "open file" action anywhere: the backend
- * stores a storage key but has no endpoint that serves the bytes back.
+ * status filter. Every row opens the document's detail screen.
  */
 export default function DocumentsScreen() {
   const { activeSchool } = useSchool()
   const schoolId = activeSchool?.id
-  const [status, setStatus] = useState('')
+  const navigate = useNavigate()
+  // The filter lives in the URL so a dashboard counter can open this screen
+  // already narrowed to what it counted, and so the filtered view is a link
+  // someone can send to a colleague.
+  const [params, setParams] = useSearchParams()
+  const status = params.get('status') ?? ''
   const [uploadOpen, setUploadOpen] = useState(false)
+
+  function setStatus(next: string) {
+    if (next) params.set('status', next)
+    else params.delete('status')
+    setParams(params, { replace: true })
+  }
 
   const docs = useAsync(
     () => (schoolId ? api.listDocuments(schoolId, status ? { status } : {}) : Promise.resolve(null)),
@@ -79,11 +89,12 @@ export default function DocumentsScreen() {
                       <th>Status</th>
                       <th>Size</th>
                       <th>Uploaded</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
                     {res.documents.map((doc) => (
-                      <tr key={doc.id}>
+                      <tr key={doc.id} className="clickable" onClick={() => navigate(`/documents/${doc.id}`)}>
                         <td className="cell-strong">
                           <Link to={`/documents/${doc.id}`} style={{ color: 'var(--brand)' }}>
                             {doc.originalFilename}
@@ -100,6 +111,9 @@ export default function DocumentsScreen() {
                         </td>
                         <td className="cell-muted">{formatBytes(doc.sizeBytes)}</td>
                         <td className="cell-muted">{formatDate(doc.createdAt)}</td>
+                        <td className="cell-muted row-open" aria-hidden="true">
+                          ›
+                        </td>
                       </tr>
                     ))}
                   </tbody>

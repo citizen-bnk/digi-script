@@ -34,11 +34,18 @@ export function TeacherHomeScreen() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      {/* A count with a list behind it should open that list — this one used
+          to be a dead tile above a nav bar that could reach the same roster. */}
+      <button
+        type="button"
+        className="card"
+        onClick={() => navigate('/teacher/class')}
+        style={{ marginBottom: 16, width: '100%', textAlign: 'left', cursor: 'pointer' }}
+      >
         <div style={{ fontSize: 13, color: 'var(--neutral-600)', marginBottom: 4 }}>My Class Overview</div>
         <div style={{ fontSize: 28, fontWeight: 700 }}>{students?.length ?? '—'}</div>
-        <div style={{ fontSize: 13, color: 'var(--neutral-600)' }}>Students</div>
-      </div>
+        <div style={{ fontSize: 13, color: 'var(--neutral-600)' }}>Students ›</div>
+      </button>
 
       <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Recent Documents</div>
       {documents === null && <div className="spinner">Loading…</div>}

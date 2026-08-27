@@ -1,18 +1,26 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
 import { Async, formatDate } from '../components/Async'
+import { Tile } from '../components/Tile'
+import { auditTargetPath } from '../lib/audit-target'
 
 /**
  * Application Spec sections 4 and 5 both open on a dashboard of headline
  * cards. Only the counts the backend actually tracks are shown — the budget,
  * cash-flow and government-report cards the spec also lists have no data
  * model behind them yet, and this portal never displays invented figures.
+ *
+ * Every count is a way into the list behind it. The district totals are the
+ * exception: they add up several schools and this portal's lists are always
+ * scoped to one, so they lead to the school breakdown instead of to a roster
+ * whose total would not match the tile that opened it.
  */
 export default function DashboardScreen() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { activeSchool, schools } = useSchool()
   const isOwner = user?.role === 'SYSTEM_OWNER'
   const schoolId = activeSchool?.id
@@ -58,30 +66,26 @@ export default function DashboardScreen() {
 
       {isOwner && (
         <div className="tile-grid">
-          <div className="tile">
-            <div className="label">Schools</div>
-            <div className="value">{schools.length}</div>
-            <div className="hint">Across the district</div>
-          </div>
-          <div className="tile">
-            <div className="label">Students (district)</div>
-            <div className="value">{districtTotals.students}</div>
-          </div>
-          <div className="tile">
-            <div className="label">Documents (district)</div>
-            <div className="value">{districtTotals.documents}</div>
-          </div>
-          <div className="tile">
-            <div className="label">Open escalations</div>
-            <div className={`value${districtTotals.pendingEscalations > 0 ? ' attention' : ''}`}>
-              {districtTotals.pendingEscalations}
-            </div>
-            <div className="hint">
-              <Link to="/schools" style={{ color: 'var(--brand)' }}>
-                See by school →
-              </Link>
-            </div>
-          </div>
+          <Tile label="Schools" value={schools.length} hint="Across the district" to="/schools" />
+          <Tile
+            label="Students (district)"
+            value={districtTotals.students}
+            hint="See by school"
+            to="/schools"
+          />
+          <Tile
+            label="Documents (district)"
+            value={districtTotals.documents}
+            hint="See by school"
+            to="/schools"
+          />
+          <Tile
+            label="Open escalations"
+            value={districtTotals.pendingEscalations}
+            attention={districtTotals.pendingEscalations > 0}
+            hint="See by school"
+            to="/schools"
+          />
         </div>
       )}
 
@@ -90,25 +94,26 @@ export default function DashboardScreen() {
         {(res) =>
           res && (
             <div className="tile-grid">
-              <div className="tile">
-                <div className="label">Active staff &amp; users</div>
-                <div className="value">{res.stats.users}</div>
-              </div>
-              <div className="tile">
-                <div className="label">Students</div>
-                <div className="value">{res.stats.students}</div>
-              </div>
-              <div className="tile">
-                <div className="label">Documents</div>
-                <div className="value">{res.stats.documents}</div>
-                <div className="hint">{res.stats.documentsAwaitingReview} awaiting review</div>
-              </div>
-              <div className="tile">
-                <div className="label">Open escalations</div>
-                <div className={`value${res.stats.pendingEscalations > 0 ? ' attention' : ''}`}>
-                  {res.stats.pendingEscalations}
-                </div>
-              </div>
+              <Tile label="Active staff &amp; users" value={res.stats.users} to="/users" />
+              <Tile label="Students" value={res.stats.students} to="/students" />
+              <Tile label="Documents" value={res.stats.documents} to="/documents" />
+              {/* Awaiting review was a hint inside the Documents tile. It is a
+                  count with a destination of its own, and a link inside a link
+                  is not a thing a browser will render — so it is its own tile,
+                  opening the library already filtered. */}
+              <Tile
+                label="Awaiting review"
+                value={res.stats.documentsAwaitingReview}
+                attention={res.stats.documentsAwaitingReview > 0}
+                hint="Escalated for a human decision"
+                to="/documents?status=ESCALATED"
+              />
+              <Tile
+                label="Open escalations"
+                value={res.stats.pendingEscalations}
+                attention={res.stats.pendingEscalations > 0}
+                to="/escalations"
+              />
             </div>
           )
         }
@@ -134,16 +139,27 @@ export default function DashboardScreen() {
                       <th>Action</th>
                       <th>Target</th>
                       <th>When</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
-                    {res.entries.slice(0, 8).map((entry) => (
-                      <tr key={entry.id}>
-                        <td className="cell-strong">{entry.action.replace(/_/g, ' ').toLowerCase()}</td>
-                        <td className="cell-muted">{entry.targetType ?? '—'}</td>
-                        <td className="cell-muted">{formatDate(entry.createdAt)}</td>
-                      </tr>
-                    ))}
+                    {res.entries.slice(0, 8).map((entry) => {
+                      const path = auditTargetPath(entry.targetType, entry.targetId)
+                      return (
+                        <tr
+                          key={entry.id}
+                          className={path ? 'clickable' : undefined}
+                          onClick={path ? () => navigate(path) : undefined}
+                        >
+                          <td className="cell-strong">{entry.action.replace(/_/g, ' ').toLowerCase()}</td>
+                          <td className="cell-muted">{entry.targetType ?? '—'}</td>
+                          <td className="cell-muted">{formatDate(entry.createdAt)}</td>
+                          <td className="cell-muted row-open" aria-hidden="true">
+                            {path ? '›' : ''}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

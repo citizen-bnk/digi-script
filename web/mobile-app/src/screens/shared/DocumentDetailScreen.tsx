@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { api, ApiError, type DocumentSummary } from '../../api/client'
+import DocumentPreview from '../../components/DocumentPreview'
 
 const STATUS_COLOR: Record<string, string> = {
   CATEGORIZED: 'var(--secondary)',
@@ -10,9 +11,9 @@ const STATUS_COLOR: Record<string, string> = {
   ARCHIVED: 'var(--neutral-600)',
 }
 
-// Shows document metadata only — the backend stores an uploaded file's
-// storage key, not a way to serve the file back over HTTP, so there is no
-// "open file" action here. See root README's known gaps.
+// The document itself, plus what the AI made of it. The capture is shown
+// first: someone who has just photographed a form wants to see whether the
+// photo came out before they read a confidence score about it.
 export function DocumentDetailScreen({ onConfirmed }: { onConfirmed?: () => void } = {}) {
   const { documentId } = useParams<{ documentId: string }>()
   const [searchParams] = useSearchParams()
@@ -69,6 +70,17 @@ export function DocumentDetailScreen({ onConfirmed }: { onConfirmed?: () => void
 
         {doc && (
           <>
+            {user?.schoolId && documentId && (
+              <div className="card" style={{ marginBottom: 16 }}>
+                <DocumentPreview
+                  documentId={documentId}
+                  schoolId={user.schoolId}
+                  filename={doc.originalFilename}
+                  mimeType={doc.mimeType}
+                />
+              </div>
+            )}
+
             <div className="card" style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{doc.originalFilename}</div>
               <span

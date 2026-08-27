@@ -41,7 +41,13 @@ export function requireSameSchool(schoolId: string, user: NonNullable<Request["u
 export const ROLE_GROUPS = {
   schoolManagement: [Role.SYSTEM_OWNER, Role.SUPER_USER],
   documentReview: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR],
-  escalationHandlers: [Role.SUPER_USER, Role.SUPERVISOR, Role.SUPPORT],
+  // SYSTEM_OWNER belongs here for the same reason it belongs in every other
+  // back-office group: the district dashboard counts open escalations and the
+  // sidebar offers the queue, and a district director who is shown the number
+  // and then refused the list is being told the portal is broken. Their reach
+  // is still bounded by requireSameSchool, which limits them to the district
+  // they belong to.
+  escalationHandlers: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPERVISOR, Role.SUPPORT],
   auditAccess: [Role.SYSTEM_OWNER, Role.SUPER_USER, Role.SUPPORT],
   // TEACHER is read-only and class-scoped (enforced by listStudents /
   // assertCanAccessStudent), unlike documentReview roles which can also

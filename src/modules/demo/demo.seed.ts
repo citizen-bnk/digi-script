@@ -186,6 +186,31 @@ const DOCUMENTS: SeedDocument[] = [
   { filename: "Untitled_Scan_0091.png", textSample: "Scanned page. Contents unclear from the capture.", schoolKey: "lethabo", term: "Term 2" },
 ];
 
+/**
+ * One document per learner, on top of the hand-written set above.
+ *
+ * The curated documents are chosen for the pipeline — a spread of categories
+ * and two that deliberately fail to classify — and only a handful name a
+ * learner. That left nineteen of twenty-six student records opening on an
+ * empty document list, which reads as a broken screen rather than as a
+ * learner who happens to have no file.
+ *
+ * A report card is the honest thing for every learner to have: it is
+ * per-learner by nature, it carries their own name and class in the PDF, and
+ * the term keeps it distinct from the Term 1 cards already in the set.
+ */
+const PER_LEARNER_DOCUMENTS: SeedDocument[] = LEARNERS.map((learner) => ({
+  filename: `Report_Card_Term2_2026_${learner.name.replace(/ /g, "_")}.pdf`,
+  textSample:
+    `Report card. Term 2 2026. Learner ${learner.name}, ${learner.className}. ` +
+    "Subject marks and the class teacher's comment for the term.",
+  schoolKey: learner.schoolKey,
+  learnerName: learner.name,
+  term: "Term 2",
+}));
+
+const ALL_DOCUMENTS = [...DOCUMENTS, ...PER_LEARNER_DOCUMENTS];
+
 function asAuthUser(user: {
   id: string;
   role: Role;
@@ -284,9 +309,9 @@ export async function seedDemoData() {
   // several at once finish in a fraction of the wall time. The batch is kept
   // small so a pooled connection is not exhausted.
   const INGEST_CONCURRENCY = 4;
-  for (let start = 0; start < DOCUMENTS.length; start += INGEST_CONCURRENCY) {
+  for (let start = 0; start < ALL_DOCUMENTS.length; start += INGEST_CONCURRENCY) {
     await Promise.all(
-      DOCUMENTS.slice(start, start + INGEST_CONCURRENCY).map((doc) => {
+      ALL_DOCUMENTS.slice(start, start + INGEST_CONCURRENCY).map((doc) => {
         const school = schoolsByKey.get(doc.schoolKey)!;
         const file = demoFileFor(doc, school.name);
         return ingestDocument({

@@ -1,16 +1,18 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
 import { Async } from '../components/Async'
 
 /**
- * Student Records (Application Spec section 5). Only the fields the Student
- * model stores are shown — the spec also lists emergency contacts, medical
- * notes and permissions, none of which exist in the schema yet.
+ * Student Records (Application Spec section 5). The roster is a way in, not a
+ * destination: every row opens the learner's detail screen, where the record
+ * can be corrected and their documents are listed.
  */
 export default function StudentsScreen() {
   const { activeSchool } = useSchool()
+  const navigate = useNavigate()
   const schoolId = activeSchool?.id
   const [query, setQuery] = useState('')
 
@@ -61,16 +63,24 @@ export default function StudentsScreen() {
                       <th>Grade</th>
                       <th>Class</th>
                       <th>Date of birth</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((student) => (
-                      <tr key={student.id}>
+                      <tr
+                        key={student.id}
+                        className="clickable"
+                        onClick={() => navigate(`/students/${student.id}`)}
+                      >
                         <td className="cell-strong">{student.name}</td>
                         <td>{student.grade ?? '—'}</td>
                         <td>{student.className ?? '—'}</td>
                         <td className="cell-muted">
                           {student.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString() : '—'}
+                        </td>
+                        <td className="cell-muted row-open" aria-hidden="true">
+                          ›
                         </td>
                       </tr>
                     ))}

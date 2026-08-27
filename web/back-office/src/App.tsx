@@ -11,6 +11,8 @@ import DocumentsScreen from './screens/DocumentsScreen'
 import DocumentDetailScreen from './screens/DocumentDetailScreen'
 import UsersScreen from './screens/UsersScreen'
 import StudentsScreen from './screens/StudentsScreen'
+import StudentDetailScreen from './screens/StudentDetailScreen'
+import UserDetailScreen from './screens/UserDetailScreen'
 import EscalationsScreen from './screens/EscalationsScreen'
 import AuditScreen from './screens/AuditScreen'
 
@@ -60,7 +62,12 @@ function Shell() {
           />
           <Route path="/escalations" element={<RoleRoute path="/escalations" element={<EscalationsScreen />} />} />
           <Route path="/users" element={<RoleRoute path="/users" element={<UsersScreen />} />} />
+          <Route path="/users/:userId" element={<RoleRoute path="/users" element={<UserDetailScreen />} />} />
           <Route path="/students" element={<RoleRoute path="/students" element={<StudentsScreen />} />} />
+          <Route
+            path="/students/:studentId"
+            element={<RoleRoute path="/students" element={<StudentDetailScreen />} />}
+          />
           <Route path="/audit" element={<RoleRoute path="/audit" element={<AuditScreen />} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

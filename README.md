@@ -334,11 +334,14 @@ frontends are built with `VITE_API_URL=/api` so they call their own host.
 
 ### Serverless trade-offs
 
-- **Uploaded file bytes don't persist.** Only `/tmp` is writable and it is
-  wiped between cold starts, so `LOCAL_STORAGE_DIR` defaults there on
-  Vercel. Nothing reads a document's bytes back — no endpoint serves
-  files — so the demo is unaffected. Durable storage means swapping in an
-  S3-backed `StorageService`.
+- **Uploaded file bytes live in Postgres.** Only `/tmp` is writable on a
+  serverless function and it is wiped between cold starts, so a document
+  uploaded there was readable for a few minutes and then gone. The default
+  `StorageService` writes the bytes to a `document_files` row instead, and
+  `GET /documents/:id/file` reads them back under the same access rules as
+  the document's metadata. Postgres is a poor object store at scale, which
+  is what `StorageService` exists to make swappable: at district volume,
+  swap in an S3-backed implementation.
 - **Cold starts** are about a second, not the ~50s of a sleeping
   container host.
 - `render.yaml` and the `Dockerfile` are still here and still work, if the

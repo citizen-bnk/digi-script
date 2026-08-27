@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { useSchool } from '../context/SchoolContext'
 import { useAsync } from '../hooks/useAsync'
@@ -13,6 +14,7 @@ const ROLES = ['SUPER_USER', 'SUPERVISOR', 'TEACHER', 'SUPPORT', 'PARENT']
  */
 export default function UsersScreen() {
   const { activeSchool } = useSchool()
+  const navigate = useNavigate()
   const schoolId = activeSchool?.id
   const [showInvite, setShowInvite] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -145,7 +147,7 @@ export default function UsersScreen() {
                   </thead>
                   <tbody>
                     {res.users.map((user) => (
-                      <tr key={user.id}>
+                      <tr key={user.id} className="clickable" onClick={() => navigate(`/users/${user.id}`)}>
                         <td className="cell-strong">{user.name}</td>
                         <td className="cell-muted">{user.email}</td>
                         <td>{user.role.replace(/_/g, ' ')}</td>
@@ -154,7 +156,7 @@ export default function UsersScreen() {
                           <StatusPill status={user.status} />
                         </td>
                         <td className="cell-muted">{formatDate(user.lastLoginAt)}</td>
-                        <td>
+                        <td onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             className="secondary"

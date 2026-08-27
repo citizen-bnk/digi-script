@@ -36,10 +36,11 @@ fabricated numbers:
   conversation status changes — not the channel-toggle settings screen in
   the catalog, since there's no notification-delivery system
   (push/SMS/WhatsApp) built yet.
-- **Document detail** shows metadata only (category, confidence, folder
-  path, "why we think this") — the backend stores a document's storage
-  key, not a way to serve the file back over HTTP, so there's no "open
-  file" / preview action anywhere in this app.
+- **Document detail** shows the file itself — an image capture inline, a
+  PDF in a frame — above the metadata (category, confidence, folder path,
+  "why we think this"). The bytes need a bearer token, so the viewer
+  fetches them and renders an object URL rather than pointing an `<img>` at
+  the API.
 - **Student** is scoped to login + read-only self-view only, per a
   deliberate product decision (see root README's "Product decisions") —
   no courses, assignments, grades, or learning resources, even though the

@@ -168,3 +168,56 @@ export async function linkParentToStudent(input: LinkParentInput) {
 
   return link;
 }
+
+export interface UpdateStudentInput {
+  name?: string;
+  grade?: string | null;
+  className?: string | null;
+  dateOfBirth?: Date | null;
+  emergencyContacts?: unknown;
+  medicalNotes?: unknown;
+}
+
+/**
+ * Edits a student record from the back-office detail screen.
+ *
+ * Reuses assertCanAccessStudent so a write can never reach a record the
+ * caller could not read — the route additionally narrows *who* may write
+ * (schoolManagement), but the tenant and class scoping lives here, in one
+ * place, rather than being restated per verb.
+ *
+ * The audit entry records which fields changed, never their values:
+ * medicalNotes and emergencyContacts are exactly the data the audit log
+ * should not be quietly duplicating in a second, differently-governed table.
+ */
+export async function updateStudent(
+  user: AuthenticatedUser,
+  studentId: string,
+  patch: UpdateStudentInput,
+) {
+  const existing = await assertCanAccessStudent(user, studentId);
+
+  const data = Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as UpdateStudentInput;
+
+  if (Object.keys(data).length === 0) {
+    throw AppError.badRequest("No fields to update");
+  }
+
+  const student = await prisma.student.update({
+    where: { id: studentId },
+    data: data as never,
+  });
+
+  await recordAuditEntry({
+    actorUserId: user.id,
+    schoolId: existing.schoolId,
+    action: "STUDENT_UPDATED",
+    targetType: "Student",
+    targetId: studentId,
+    metadata: { fields: Object.keys(data).sort() },
+  });
+
+  return student;
+}

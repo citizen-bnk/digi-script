@@ -37,11 +37,30 @@ school is no longer visible to the account.
 | Multi-School Overview | `GET /schools` (System Owner only) |
 | Per-school demo toggle | `PATCH /schools/:id/demo-mode` (System Owner only) |
 | Document Library + upload/confirm | `GET/POST /documents`, `POST /documents/:id/confirm-category` |
-| Document detail | `GET /documents/:id` |
+| Document detail + in-page viewer | `GET /documents/:id`, `GET /documents/:id/file` |
 | Escalations (list + detail + resolve) | `GET /escalations`, `POST /escalations/:id/resolve` |
 | User Management (directory, add, deactivate) | `GET/POST /users`, `POST /users/:id/deactivate` |
+| User detail + edit | `GET /users/:id`, `PATCH /users/:id` |
 | Student Records | `GET /students` |
+| Student detail + edit | `GET /students/:id`, `PATCH /students/:id`, `GET /documents?studentId=` |
 | Audit Logs | `GET /audit` |
+
+## Getting around
+
+Nothing here is a terminus. Every dashboard counter is a link to the list it
+counted — the school tiles to that school's users, learners, documents and
+escalations; the district totals to the school breakdown, because a total
+that spans schools has no single list whose number would match it. The
+"Awaiting review" tile opens the library already filtered to what is
+escalated, and the status filter lives in the URL, so that view is a link
+worth sending to someone.
+
+Rows open records: a learner or a staff member opens their detail screen,
+where the record can be corrected; a document opens its detail screen, where
+the file itself is displayed. Audit entries open whatever they are about,
+where this portal has a screen for it — a Conversation belongs to the mobile
+app and an Escalation has no URL of its own, so those stay inert rather than
+linking to a redirect.
 
 ## Known gaps (deliberate, not bugs)
 
@@ -63,9 +82,6 @@ number on any screen is invented:
 - **Bulk CSV user/student import** and **password-reset email** — the spec
   lists both; neither has an endpoint. New users are created with a
   temporary password shown in the form.
-- **Document preview or download** — the backend stores a storage key but
-  has no endpoint that serves the file bytes back, so no screen offers to
-  open a document.
 - **Sortable / paginated tables** — lists are returned whole and rendered
   whole. Fine at seed scale, not at district scale.
 
