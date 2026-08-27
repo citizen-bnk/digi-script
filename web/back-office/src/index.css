@@ -489,11 +489,116 @@ input:focus, select:focus, textarea:focus {
   align-items: start;
 }
 
+/* The phone header. Hidden on a wide screen, where the sidebar is always
+   there and there is nothing to open. */
+.topbar { display: none; }
+
+.hamburger {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hamburger span {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.nav-scrim { display: none; }
+
 @media (max-width: 900px) {
   .split { grid-template-columns: 1fr; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #0f1a26;
+  }
+
+  /* Off-canvas, and closed on arrival: the menu used to be a full-width
+     block above the page, so every screen opened on the nav with the
+     content below the fold. */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(84vw, 300px);
+    height: 100dvh;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .shell.nav-open .sidebar { transform: translateX(0); }
+
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: none;
+    padding: 0;
+    background: rgba(9, 14, 22, 0.5);
+    cursor: pointer;
+  }
+
   .shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; position: static; }
-  .content { padding: 20px; }
+  .content { padding: 18px 16px 48px; }
+}
+
+/* Sections the design has but this build does not: shown so the menu is not
+   misleadingly short, inert so nothing opens an empty page. */
+.nav-soon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  font-size: 14px;
+  color: #6c7c8d;
+  cursor: default;
+}
+
+.nav-soon-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b9aab;
+  border: 1px solid #33445a;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
 }
 
 .list-row {
