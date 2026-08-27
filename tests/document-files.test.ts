@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { app, createUser, login, registerSchool } from "./helpers.js";
+import { inflateSync } from "node:zlib";
 import { pdfBytes, pngBytes } from "../src/modules/demo/demo.files.js";
 
 /**
@@ -145,5 +146,68 @@ describe("the generated demo files", () => {
     expect(png.subarray(12, 16).toString()).toBe("IHDR");
     expect(png.readUInt32BE(16)).toBe(16);
     expect(png.subarray(-8, -4).toString()).toBe("IEND");
+  });
+});
+
+/**
+ * Reads back a PNG this module wrote: truecolour, 8-bit, filter 0 on every
+ * scanline, so the pixels are the inflated IDAT minus one leading byte per
+ * row. Enough to check what was actually drawn.
+ */
+function decodePng(png: Buffer): { width: number; height: number; colours: Map<string, number> } {
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+
+  const idat: Buffer[] = [];
+  let at = 8;
+  while (at < png.length) {
+    const length = png.readUInt32BE(at);
+    const type = png.subarray(at + 4, at + 8).toString("ascii");
+    if (type === "IDAT") idat.push(png.subarray(at + 8, at + 8 + length));
+    at += 12 + length;
+  }
+
+  const raw = inflateSync(Buffer.concat(idat));
+  const colours = new Map<string, number>();
+  for (let y = 0; y < height; y++) {
+    const row = y * (width * 3 + 1) + 1;
+    for (let x = 0; x < width; x++) {
+      const key = raw.subarray(row + x * 3, row + x * 3 + 3).toString("hex");
+      colours.set(key, (colours.get(key) ?? 0) + 1);
+    }
+  }
+  return { width, height, colours };
+}
+
+describe("the generated capture image", () => {
+  it("is a drawn document, not a block of colour", () => {
+    // The first version computed pixel offsets from fractional coordinates,
+    // so almost every fill addressed nothing and the result was a flat
+    // rectangle. It was still a valid PNG of the right size — only looking
+    // at the pixels catches that.
+    const { colours } = decodePng(pngBytes());
+
+    expect(colours.size).toBeGreaterThanOrEqual(4);
+    const [, largest] = [...colours.entries()].sort((a, b) => b[1] - a[1])[0];
+    const total = [...colours.values()].reduce((sum, n) => sum + n, 0);
+    // Paper should dominate without being the whole image.
+    expect(largest / total).toBeLessThan(0.85);
+  });
+
+  it("puts paper inside a border, as a photographed page does", () => {
+    const { colours } = decodePng(pngBytes());
+    const paper = colours.get("f7f8fc") ?? 0;
+    const tint = colours.get("4c17d4") ?? 0;
+
+    expect(paper).toBeGreaterThan(0);
+    expect(tint).toBeGreaterThan(0);
+    expect(paper).toBeGreaterThan(tint);
+  });
+
+  it("scales without losing its structure", () => {
+    const { width, height, colours } = decodePng(pngBytes(160, 220));
+    expect(width).toBe(160);
+    expect(height).toBe(220);
+    expect(colours.size).toBeGreaterThanOrEqual(4);
   });
 });

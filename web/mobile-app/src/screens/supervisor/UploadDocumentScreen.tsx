@@ -4,13 +4,19 @@ import { useAuth } from '../../context/AuthContext'
 import { api, ApiError, type DocumentSummary, type Student } from '../../api/client'
 
 // Matches docs/design/mobile-app-screens-catalog.md page 04 ("Document
-// Upload" + "AI Categorization"). The camera capture button uses a real
-// <input capture> — on a phone this opens the camera directly, on desktop
-// it falls back to a file picker.
+// Upload" + "AI Categorization").
+//
+// Three sources rather than one, as the design has it. A single input with
+// capture="environment" does open the camera on a phone — but it *only*
+// opens the camera, so there was no way to send a photo already taken or a
+// PDF that arrived by email. The attribute is the difference: with it the
+// camera, without it the gallery and file picker.
 export function UploadDocumentScreen() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const browseInputRef = useRef<HTMLInputElement>(null)
   const [students, setStudents] = useState<Student[] | null>(null)
   const [studentId, setStudentId] = useState('')
   const [academicYear, setAcademicYear] = useState('')
@@ -19,6 +25,23 @@ export function UploadDocumentScreen() {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<DocumentSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Object URL for the chosen image, so a capture can be checked before it is
+  // sent — the design's "Review & Upload" step. Revoked on replacement, since
+  // each one holds the file in memory until it is.
+  const [preview, setPreview] = useState<string | null>(null)
+
+  function chooseFile(next: File | null) {
+    setPreview((current) => {
+      if (current) URL.revokeObjectURL(current)
+      return next && next.type.startsWith('image/') ? URL.createObjectURL(next) : null
+    })
+    setFile(next)
+    setError(null)
+  }
+
+  useEffect(() => () => {
+    if (preview) URL.revokeObjectURL(preview)
+  }, [preview])
 
   useEffect(() => {
     if (!user?.schoolId) return
@@ -107,23 +130,73 @@ export function UploadDocumentScreen() {
       {error && <div className="error-banner">{error}</div>}
 
       <form onSubmit={handleSubmit}>
-        <div
-          className="card"
-          style={{ marginBottom: 16, textAlign: 'center', borderStyle: 'dashed', cursor: 'pointer' }}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,.pdf"
-            capture="environment"
-            style={{ display: 'none' }}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <div style={{ fontSize: 28, marginBottom: 6 }}>📷</div>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{file ? file.name : 'Take Photo or Choose File'}</div>
-          <div style={{ fontSize: 12, color: 'var(--neutral-600)' }}>PDF or image</div>
+        {/* capture="environment" opens the rear camera; without it the same
+            control offers the gallery or the file picker instead. */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
+        />
+        <input
+          ref={browseInputRef}
+          type="file"
+          accept="image/*,application/pdf,.pdf"
+          style={{ display: 'none' }}
+          onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
+        />
+
+        <div className="capture-sources">
+          <button type="button" className="capture-source" onClick={() => cameraInputRef.current?.click()}>
+            <span className="capture-source-icon" aria-hidden="true">📷</span>
+            <strong>Take Photo</strong>
+            <small>Use camera</small>
+          </button>
+          <button type="button" className="capture-source" onClick={() => galleryInputRef.current?.click()}>
+            <span className="capture-source-icon" aria-hidden="true">🖼️</span>
+            <strong>Choose Files</strong>
+            <small>From gallery</small>
+          </button>
+          <button type="button" className="capture-source" onClick={() => browseInputRef.current?.click()}>
+            <span className="capture-source-icon" aria-hidden="true">📄</span>
+            <strong>Browse</strong>
+            <small>Files &amp; folders</small>
+          </button>
         </div>
+
+        {file && (
+          <div className="capture-review">
+            {preview ? (
+              <img src={preview} alt="The document you captured" className="capture-preview" />
+            ) : (
+              <span className="capture-preview is-file" aria-hidden="true">📄</span>
+            )}
+            <span className="capture-review-text">
+              <strong>{file.name}</strong>
+              <small>
+                {file.type || 'file'} · {(file.size / 1024).toFixed(0)} KB
+              </small>
+            </span>
+            <button type="button" className="capture-clear" onClick={() => chooseFile(null)}>
+              Retake
+            </button>
+          </div>
+        )}
+
+        {!file && (
+          <p style={{ fontSize: 12, color: 'var(--neutral-600)', textAlign: 'center', margin: '0 0 16px' }}>
+            Photos and PDFs, up to 4 MB.
+          </p>
+        )}
 
         <div className="field">
           <label htmlFor="student">Student (optional)</label>

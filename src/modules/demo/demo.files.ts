@@ -91,24 +91,80 @@ function pngChunk(type: string, payload: Buffer): Buffer {
 }
 
 /**
- * A small PNG: a plain background with a darker band across the top, which
- * is enough to look like a scanned page in a thumbnail without shipping a
- * photograph. Standing in for the phone-camera captures the scanning team
- * screens describe.
+ * A small PNG that reads as a photographed document rather than a colour
+ * swatch: a header band, a portrait box, ruled lines where text would be,
+ * and a barcode strip. Standing in for the ID cards, registration forms and
+ * certificates the scanning-team screens capture with a phone.
+ *
+ * Drawn by filling rectangles into a raw RGB buffer — there is no canvas in
+ * a server process, and a few rectangles are all a thumbnail needs.
  */
-export function pngBytes(width = 320, height = 440, tint: [number, number, number] = [0x4c, 0x17, 0xd4]): Buffer {
-  const raw = Buffer.alloc((width * 3 + 1) * height);
-  let cursor = 0;
-  for (let y = 0; y < height; y++) {
-    raw[cursor++] = 0; // filter: none
-    for (let x = 0; x < width; x++) {
-      const inBand = y < height * 0.16;
-      const edge = x < 6 || x > width - 7 || y < 6 || y > height - 7;
-      const [r, g, b] = inBand || edge ? tint : [0xf4, 0xf6, 0xfb];
-      raw[cursor++] = r;
-      raw[cursor++] = g;
-      raw[cursor++] = b;
+export function pngBytes(
+  width = 320,
+  height = 440,
+  tint: [number, number, number] = [0x4c, 0x17, 0xd4],
+): Buffer {
+  const paper: [number, number, number] = [0xf7, 0xf8, 0xfc];
+  const ink: [number, number, number] = [0xc8, 0xcc, 0xdb];
+  const pixels = Buffer.alloc(width * height * 3);
+
+  // Coordinates are derived from a fractional unit, and a pixel offset
+  // computed from a fractional row addresses nothing — rounding here is what
+  // makes the shapes appear at all.
+  const fill = (
+    x0: number,
+    y0: number,
+    w: number,
+    h: number,
+    [r, g, b]: [number, number, number],
+  ) => {
+    const left = Math.max(0, Math.round(x0));
+    const top = Math.max(0, Math.round(y0));
+    const right = Math.min(width, Math.round(x0 + w));
+    const bottom = Math.min(height, Math.round(y0 + h));
+
+    for (let y = top; y < bottom; y++) {
+      for (let x = left; x < right; x++) {
+        const at = (y * width + x) * 3;
+        pixels[at] = r;
+        pixels[at + 1] = g;
+        pixels[at + 2] = b;
+      }
     }
+  };
+
+  const unit = width / 100;
+  fill(0, 0, width, height, tint); // border, showing as a frame around the page
+  fill(unit * 4, unit * 4, width - unit * 8, height - unit * 8, paper);
+  fill(unit * 4, unit * 4, width - unit * 8, unit * 14, tint); // title band
+
+  // Portrait box, as on an identity document.
+  const photoTop = unit * 22;
+  fill(unit * 9, photoTop, unit * 24, unit * 30, ink);
+
+  // Ruled lines beside the portrait, then across the page below it.
+  for (let line = 0; line < 4; line++) {
+    fill(unit * 38, photoTop + line * unit * 8, unit * 50, unit * 3.5, ink);
+  }
+  for (let line = 0; line < 5; line++) {
+    fill(unit * 9, photoTop + unit * 36 + line * unit * 7, width - unit * 18, unit * 3, ink);
+  }
+
+  // Barcode strip: alternating bars of varying width, deterministic so the
+  // same document always renders the same way.
+  let x = unit * 9;
+  for (let bar = 0; x < width - unit * 12; bar++) {
+    const barWidth = unit * (bar % 3 === 0 ? 2.5 : 1);
+    fill(x, height - unit * 16, barWidth, unit * 8, [0x2a, 0x2f, 0x3d]);
+    x += barWidth + unit * 1.5;
+  }
+
+  // PNG scanlines each carry a leading filter byte, so the raw buffer is
+  // built row by row rather than handed over whole.
+  const raw = Buffer.alloc((width * 3 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    raw[y * (width * 3 + 1)] = 0; // filter: none
+    pixels.copy(raw, y * (width * 3 + 1) + 1, y * width * 3, (y + 1) * width * 3);
   }
 
   const ihdr = Buffer.alloc(13);

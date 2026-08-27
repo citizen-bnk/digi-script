@@ -13,6 +13,8 @@ export default function SchoolsScreen() {
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toggleError, setToggleError] = useState<string | null>(null)
+  const [reseeding, setReseeding] = useState(false)
+  const [reseedNote, setReseedNote] = useState<string | null>(null)
 
   // Turning demo mode on for a school makes its staff and learners
   // available as one-click demo logins. District-level decision, so it
@@ -30,6 +32,33 @@ export default function SchoolsScreen() {
     }
   }
 
+  /**
+   * Lays the demo district down again from scratch.
+   *
+   * The seed is open to anyone only while the database is empty; after that
+   * it needs a system owner, and there was no way to ask for it — so a demo
+   * seeded by an older build stayed on that older data for good. That is how
+   * documents seeded before files had bytes ended up unopenable.
+   *
+   * It replaces everything, which is why it asks first.
+   */
+  async function reloadDemoData() {
+    if (!window.confirm('Replace all demo data with a fresh copy? Existing records are removed.')) {
+      return
+    }
+    setReseeding(true)
+    setReseedNote(null)
+    try {
+      await api.seedDemo()
+      setReseedNote('Demo data reloaded.')
+      reload()
+    } catch (err) {
+      setReseedNote(err instanceof ApiError ? err.message : 'Could not reload the demo data')
+    } finally {
+      setReseeding(false)
+    }
+  }
+
   function drillInto(schoolId: string) {
     setActiveSchoolId(schoolId)
     navigate('/dashboard')
@@ -43,6 +72,20 @@ export default function SchoolsScreen() {
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+
+      <div className="admin-row" style={{ marginBottom: 16 }}>
+        <span className="admin-row-text">
+          <strong>Demo data</strong>
+          <small>
+            Reload the demo district — every school, learner, document and
+            conversation, replaced with a fresh copy.
+          </small>
+        </span>
+        <button type="button" className="btn-ghost" disabled={reseeding} onClick={reloadDemoData}>
+          {reseeding ? 'Reloading…' : 'Reload demo data'}
+        </button>
+      </div>
+      {reseedNote && <div className="error-banner">{reseedNote}</div>}
       {toggleError && <div className="error-banner">{toggleError}</div>}
 
       <div className="card">
